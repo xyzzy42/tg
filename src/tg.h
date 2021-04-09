@@ -309,6 +309,10 @@ struct main_window {
 	GtkComboBox *rate_list;
 	GtkRange *hpf_range;
 
+	/* Signal dialog */
+	GtkWidget *signal_dialog;
+	GtkWidget *signal_graph;
+
 	struct output_panel *active_panel;
 
 	struct computer *computer;
