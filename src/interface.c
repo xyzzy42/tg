@@ -952,6 +952,89 @@ static void init_audio_dialog(struct main_window *w)
 	g_signal_connect(G_OBJECT(w->rate_list), "changed", G_CALLBACK(rate_changed), w);
 }
 
+#ifdef HAVE_PYTHON
+
+static void signal_dialog_response(GtkDialog *dialog, int response_id, struct main_window *w)
+{
+	UNUSED(w);
+	if (response_id == GTK_RESPONSE_CLOSE)
+		gtk_widget_hide(GTK_WIDGET(dialog));
+}
+
+static void signal_dialog_show(GtkMenuItem *m, struct main_window *w)
+{
+	UNUSED(m);
+	static bool python_initialized = false;
+	if (!python_initialized) {
+		if (!python_init(w))
+			return;
+		python_initialized = true;
+	}
+
+	gtk_widget_show_all(w->signal_dialog);
+}
+
+static void signal_hpf_change(GtkRange *hpf, struct main_window *w)
+{
+	double hpf_freq = gtk_range_get_value(GTK_RANGE(hpf));
+	set_audio_hpf(hpf_freq);
+	// Use calibrated SR or normal SR?
+	create_filter_plot(get_audio_hpf(), hpf_freq, w->nominal_sr, w->signal_graph);
+}
+
+static void init_signal_dialog(struct main_window *w)
+{
+	w->signal_dialog = gtk_dialog_new_with_buttons("Signal", NULL,
+		 GTK_DIALOG_DESTROY_WITH_PARENT,
+		 "_Close", GTK_RESPONSE_CLOSE,
+		 NULL);
+	gtk_dialog_set_default_response(GTK_DIALOG(w->signal_dialog), GTK_RESPONSE_OK);
+	g_signal_connect(G_OBJECT(w->signal_dialog), "response", G_CALLBACK(signal_dialog_response), w);
+	g_signal_connect(G_OBJECT(w->signal_dialog), "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
+
+	GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(w->signal_dialog));
+	GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+	gtk_container_add(GTK_CONTAINER(content), vbox);
+	GtkWidget *sbox;
+
+#if HAVE_FILTERGRAPH
+	/* Filter label and slider */
+	sbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+	gtk_box_pack_start(GTK_BOX(vbox), sbox, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(sbox), gtk_label_new("High Pass Cutoff"), FALSE, FALSE, 0);
+
+	GtkWidget *hpf = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 24000, 100);
+	gtk_scale_add_mark(GTK_SCALE(hpf), 0, GTK_POS_BOTTOM, "Off");
+	gtk_scale_add_mark(GTK_SCALE(hpf), FILTER_CUTOFF, GTK_POS_BOTTOM, "Default");
+	gtk_range_set_restrict_to_fill_level(GTK_RANGE(hpf), true);
+	gtk_range_set_show_fill_level(GTK_RANGE(hpf), true);
+	gtk_range_set_fill_level(GTK_RANGE(hpf), w->nominal_sr / 2);
+	gtk_range_set_value(GTK_RANGE(hpf), w->hpf_freq);
+	gtk_box_pack_start(GTK_BOX(sbox), hpf, TRUE, TRUE, 0);
+	g_signal_connect(G_OBJECT(hpf), "value-changed", G_CALLBACK(signal_hpf_change), w);
+#endif
+
+	/* Output image */
+	GtkWidget *img = gtk_image_new();
+	gtk_box_pack_start(GTK_BOX(vbox), img, TRUE, TRUE, 0);
+	gtk_widget_set_size_request(img, 800, -1);
+	w->signal_graph = img;
+}
+#else
+static inline void signal_dialog_show(GtkMenuItem *m, struct main_window *w)
+{ 
+	UNUSED(m);
+	GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(w->window),
+		GTK_DIALOG_DESTROY_WITH_PARENT, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+		"Tg was compiled without Python support so the signal analysis functions are unavailble.");
+	g_signal_connect_swapped(dialog, "response", G_CALLBACK(gtk_widget_destroy), dialog);
+	gtk_widget_show_all(dialog);
+}
+static inline void init_signal_dialog(struct main_window *w)
+{ UNUSED(w); return; }
+#endif
+
 /* Set up the main window and populate with widgets */
 static void init_main_window(struct main_window *w)
 {
@@ -1079,6 +1162,8 @@ static void init_main_window(struct main_window *w)
 
 	gtk_menu_shell_append(GTK_MENU_SHELL(command_menu), gtk_separator_menu_item_new());
 
+	add_menu_item(command_menu, "Signal", true, G_CALLBACK(signal_dialog_show), w);
+
 	// ... Audio Setup
 	w->audio_setup = add_menu_item(command_menu, "Audio setup", true, G_CALLBACK(audio_setup), w);
 	init_audio_dialog(w);
@@ -1105,7 +1190,9 @@ static void init_main_window(struct main_window *w)
 	gtk_notebook_append_page(GTK_NOTEBOOK(w->notebook), w->active_panel->panel, tab_label);
 	gtk_notebook_set_tab_reorderable(GTK_NOTEBOOK(w->notebook), w->active_panel->panel, TRUE);
 
-	gtk_window_maximize(GTK_WINDOW(w->window));
+	init_signal_dialog(w);
+
+	//gtk_window_maximize(GTK_WINDOW(w->window));
 	gtk_widget_show_all(w->window);
 	gtk_widget_hide(w->snapshot_name);
 	gtk_window_set_focus(GTK_WINDOW(w->window), NULL);
