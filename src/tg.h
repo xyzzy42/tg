@@ -358,3 +358,7 @@ void close_config(struct main_window *w);
 /* serializer.c */
 int write_file(FILE *f, struct snapshot **s, char **names, uint64_t cnt);
 int read_file(FILE *f, struct snapshot ***s, char ***names, uint64_t *cnt);
+
+/* python.c */
+bool python_init(const struct main_window* w);
+void python_finish(void);
