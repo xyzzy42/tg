@@ -11,6 +11,9 @@
 build
 tg-timer.res
 
+# Generated source
+/src/py/*.c
+
 # Executables
 *.exe
 *.out

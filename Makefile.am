@@ -13,11 +13,20 @@ tg_timer_SOURCES = src/algo.c \
 		   src/audio_interface.c \
 		   src/output_panel.c \
 		   src/serializer.c \
-		   src/tg.h
+		   src/tg.h 
+
+if PYTHON
+tg_timer_SOURCES += src/python.c
+nodist_tg_timer_SOURCES = 
+CLEANFILES = $(nodist_tg_timer_SOURCES)
+endif
 
 tg_timer_dbg_SOURCES = $(tg_timer_SOURCES)
 tg_timer_prf_SOURCES = $(tg_timer_SOURCES)
 tg_timer_vlg_SOURCES = $(tg_timer_SOURCES)
+nodist_tg_timer_dbg_SOURCES = $(nodist_tg_timer_SOURCES)
+nodist_tg_timer_prf_SOURCES = $(nodist_tg_timer_SOURCES)
+nodist_tg_timer_vlg_SOURCES = $(nodist_tg_timer_SOURCES)
 
 LIBS = $(GTK_LIBS) \
        $(GTHREAD_LIBS) \
@@ -62,6 +71,11 @@ mimedir = $(datadir)/mime/packages
 dist_mime_DATA = icons/tg-timer.xml
 
 dist_man_MANS = docs/tg-timer.1
+
+%.c : %.py Makefile
+	echo 'const char $(*F)_py[] =' > $@
+	sed -e 's/\\/\\\\/g;s/"/\\"/g;s/  /\\t/g;s/^/"/;s/$$/\\n"/' $< >> $@
+	echo ";" >> $@
 
 EXTRA_DIST = autogen.sh \
 	     icons \
