@@ -12,6 +12,41 @@ PKG_CHECK_MODULES([GTK], [gtk+-3.0 glib-2.0])
 PKG_CHECK_MODULES([PORTAUDIO], [portaudio-2.0])
 PKG_CHECK_MODULES([FFTW], [fftw3f])
 
+AC_DEFUN([AX_PYTHON_PACKAGE],[
+  AC_MSG_CHECKING([for Python package $1])
+  ac_pyimport_result=`$PYTHON -c "import $1" 2>&1`
+  if test $? -eq 0; then
+    AC_MSG_RESULT([yes])
+    have_$1=yes
+  else
+    AC_MSG_RESULT([no])
+    have_$1=no
+    AC_MSG_WARN([cannot import Python module "$1".])
+  fi
+])
+
+AC_ARG_WITH([python],
+    AS_HELP_STRING([--with-python], [Support running Python plugins inside tg]))
+AS_IF([test "x$with_python" = xyes], [
+  AX_PYTHON_DEVEL([>= '3.1.0'])
+
+  AC_MSG_CHECKING([if Python building works])
+  saved_CPPFLAGS="$CPPFLAGS"
+  CPPFLAGS="$CPPFLAGS $PYTHON_CPPFLAGS"
+  AC_COMPILE_IFELSE(
+	  [AC_LANG_PROGRAM([#include <Python.h>], [PyModule_Create(NULL);])],
+	  [AC_MSG_RESULT([yes])], [AC_MSG_RESULT([no])]
+  )
+  CPPFLAGS="$CPPFLAGS -DNPY_NO_DEPRECATED_API"
+  AC_CHECK_HEADERS([numpy/ndarrayobject.h], [],
+    AC_MSG_ERROR([Couldn't find Numpy headers.])
+  )
+  CPPFLAGS="$saved_CPPFLAGS"
+],[
+   with_python=no;
+])
+AM_CONDITIONAL([PYTHON], [test x$with_python = xyes])
+
 AC_CHECK_TOOL([WINDRES], [windres])
 AM_CONDITIONAL([HAVE_WINDRES], [test x$WINDRES != x])
 
@@ -35,4 +70,6 @@ AC_MSG_RESULT([
         compiler:               ${CC}
         cflags:                 ${CFLAGS} ${AM_CFLAGS}
         ldflags:                ${LDFLAGS} ${AM_LDFLAGS}
+
+	Python support:         ${with_python}
 ])
