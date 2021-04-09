@@ -106,6 +106,9 @@ make
 The package libjack-jackd2-dev is not necessary, it only works around a
 known bug (https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=718221).
 
+Additional software is necessary for the optional Python graphing system, see
+Fedora section for more information.  Debian instructions welcome.
+
 ### Compiling on Fedora
 
 To compile tg on Fedora
@@ -126,3 +129,11 @@ prerequisites and checkout the source as for compiling (above), then run
 ```sh
 rpmbuild --build-in-place -bb packaging/tg-timer.spec
 ```
+
+To use the Python graphing code one should also install:
+```sh
+sudo dnf install python3-devel python3-numpy python3-scipy python3-matplotlib
+pip install --user libtfr
+```
+
+And run `configure` with the argument `--with-python`.
