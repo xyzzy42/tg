@@ -375,3 +375,12 @@ void close_config(struct main_window *w);
 /* serializer.c */
 int write_file(FILE *f, struct snapshot **s, char **names, uint64_t cnt);
 int read_file(FILE *f, struct snapshot ***s, char ***names, uint64_t *cnt);
+
+/* python.c */
+#ifdef HAVE_PYTHON
+bool python_init(const struct main_window* w);
+void python_finish(void);
+#else
+static inline bool python_init(const struct main_window* w) { UNUSED(w); return true; }
+static inline void python_finish(void) { }
+#endif
