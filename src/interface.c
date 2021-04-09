@@ -734,6 +734,49 @@ static GtkWidget* add_menu_item(GtkWidget* menu, const char* label, bool sensiti
 	return item;
 }
 
+static void signal_dialog_response(GtkDialog *dialog, int response_id, struct main_window *w)
+{
+	UNUSED(w);
+	if (response_id == GTK_RESPONSE_CLOSE)
+		gtk_widget_hide(GTK_WIDGET(dialog));
+}
+
+static void signal_dialog_show(GtkMenuItem *m, struct main_window *w)
+{
+	UNUSED(m);
+	if (!python_init(w))
+		return;
+
+	gtk_widget_show_all(w->signal_dialog);
+}
+
+static void init_signal_dialog(struct main_window *w)
+{
+	w->signal_dialog = gtk_dialog_new_with_buttons("Signal", NULL,
+		 GTK_DIALOG_DESTROY_WITH_PARENT,
+		 "_Close", GTK_RESPONSE_CLOSE,
+		 NULL);
+	gtk_dialog_set_default_response(GTK_DIALOG(w->signal_dialog), GTK_RESPONSE_OK);
+	g_signal_connect(G_OBJECT(w->signal_dialog), "response", G_CALLBACK(signal_dialog_response), w);
+	g_signal_connect(G_OBJECT(w->signal_dialog), "delete-event", G_CALLBACK(gtk_widget_hide_on_delete), NULL);
+
+	GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(w->signal_dialog));
+	GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+	gtk_container_add(GTK_CONTAINER(content), vbox);
+
+#ifdef HAVE_PYTHON
+	/* Output image */
+	GtkWidget *img = gtk_image_new();
+	gtk_box_pack_start(GTK_BOX(vbox), img, TRUE, TRUE, 0);
+	gtk_widget_set_size_request(img, 800, -1);
+	w->signal_graph = img;
+#else
+	gtk_box_pack_start(GTK_BOX(vbox), gtk_label_new(
+		"Tg-timer was compiled without Python support so the signal plotting functions are unavailble."),
+		TRUE, TRUE, 0);
+#endif
+}
+
 /* Set up the main window and populate with widgets */
 static void init_main_window(struct main_window *w)
 {
@@ -861,6 +904,8 @@ static void init_main_window(struct main_window *w)
 
 	gtk_menu_shell_append(GTK_MENU_SHELL(command_menu), gtk_separator_menu_item_new());
 
+	add_menu_item(command_menu, "Signal", true, G_CALLBACK(signal_dialog_show), w);
+
 	// ... Audio Setup
 	w->audio_setup = add_menu_item(command_menu, "Audio setup", true, G_CALLBACK(audio_setup), w);
 	init_audio_dialog(w);
@@ -887,7 +932,9 @@ static void init_main_window(struct main_window *w)
 	gtk_notebook_append_page(GTK_NOTEBOOK(w->notebook), w->active_panel->panel, tab_label);
 	gtk_notebook_set_tab_reorderable(GTK_NOTEBOOK(w->notebook), w->active_panel->panel, TRUE);
 
-	gtk_window_maximize(GTK_WINDOW(w->window));
+	init_signal_dialog(w);
+
+	//gtk_window_maximize(GTK_WINDOW(w->window));
 	gtk_widget_show_all(w->window);
 	gtk_widget_hide(w->snapshot_name);
 	gtk_window_set_focus(GTK_WINDOW(w->window), NULL);
