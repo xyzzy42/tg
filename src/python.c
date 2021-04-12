@@ -342,6 +342,44 @@ static GdkPixbuf* create_pixbuf_from_memview(PyObject* memview)
 		del_pyobject, memview);
 }
 
+/* Install into oldimage unless NULL, then create new image */
+GtkWidget* create_filter_plot(const struct filter* filter,
+			      int f0, int Fs, GtkWidget *oldimage)
+{
+	PyObject *title = PyObject_CallFunction(maketitle, "iid", f0, Fs, sqrt(0.5));
+	PyObject *memview = PyObject_CallFunction(plotfilter, "(ddd)(ddd)iO",
+		filter->a0, filter->a1, filter->a2, // tg's a/b are swapped from scipy
+		1.0, filter->b1, filter->b2,
+		Fs, title);
+	Py_XDECREF(title);
+	if (!memview) {
+		printf("Error from function call:\n");
+		goto error;
+	}
+	// PyMemoryView_GetContiguous?
+	GdkPixbuf *pixbuf = create_pixbuf_from_memview(memview);
+	if (!pixbuf) {
+		printf("Error creating GtkPixbuf from canvas\n");
+		goto error;
+	}
+	// pixbuf now owns the memview and will free it
+	GtkWidget *image;
+	if (oldimage) {
+		gtk_image_set_from_pixbuf(GTK_IMAGE(oldimage), pixbuf);
+		image = oldimage;
+	} else {
+		image = gtk_image_new_from_pixbuf(pixbuf);
+	}
+	// image owns pixbuf and will free it, and thence the memview
+	g_object_unref(pixbuf);
+
+	return image;
+
+error:
+	PyErr_Print();
+	return NULL;
+}
+
 /* I want something that lets me write:
 
 MODULE(filter_graph, \

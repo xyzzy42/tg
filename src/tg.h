@@ -362,3 +362,4 @@ int read_file(FILE *f, struct snapshot ***s, char ***names, uint64_t *cnt);
 /* python.c */
 bool python_init(const struct main_window* w);
 void python_finish(void);
+GtkWidget* create_filter_plot(const struct filter* filter, int f0, int Fs, GtkWidget* image);
