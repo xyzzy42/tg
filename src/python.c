@@ -358,6 +358,9 @@ static void unloadmodule(struct emptymod *module, size_t n) {
 }
 #define UNLOADMODULE(module)	unloadmodule((struct emptymod*)&module, MODULE_COUNT(module))
 
+// List of python modules to load.
+MODULE(filter_graph, plotfilter, maketitle);
+
 // Yuck, doesn't seem to be any way to pass something to this callback
 // other than a global.
 static ModState module_w_ptr;
@@ -377,6 +380,11 @@ bool python_init(const struct main_window* w)
 	Py_Initialize();
 	import_array();  // Initialize numpy
 
+#if HAVE_FILTERGRAPH
+	if (!LOADMODULE(filter_graph))
+		goto error;
+#endif
+
 	python_initialized = true;
 	return true;
 error:
@@ -386,6 +394,7 @@ error:
 
 void python_finish(void)
 {
+	UNLOADMODULE(filter_graph);
 	Py_FinalizeEx();
 }
 

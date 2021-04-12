@@ -42,6 +42,11 @@ AS_IF([test "x$with_python" = xyes], [
     AC_MSG_ERROR([Couldn't find Numpy headers.])
   )
   CPPFLAGS="$saved_CPPFLAGS"
+
+  AX_PYTHON_PACKAGE([scipy])
+  AX_PYTHON_PACKAGE([matplotlib])
+  AS_IF([test "x$have_scipy" = xyes -a "x$have_matplotlib" = xyes],
+    [AC_DEFINE([HAVE_FILTERGRAPH]) enable_filter_graph=yes;], [enable_filter_graph=no;])
 ],[
    with_python=no;
 ])
@@ -72,4 +77,5 @@ AC_MSG_RESULT([
         ldflags:                ${LDFLAGS} ${AM_LDFLAGS}
 
 	Python support:         ${with_python}
+          Filter plot:          ${enable_filter_graph}
 ])
