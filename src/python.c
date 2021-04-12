@@ -276,6 +276,11 @@ static PyObject* get_method(PyObject* module, const char* name)
 	return func;
 }
 
+// List of python modules to load.  I'd like this to be more automatic.
+extern const char filter_graph_py[];
+static PyObject *plotfilter;
+static PyObject *maketitle;
+
 bool python_init(const struct main_window* w)
 {
 	PyObject* module;
@@ -285,6 +290,17 @@ bool python_init(const struct main_window* w)
 	Py_Initialize();
 	import_array();  // Initialize numpy
 
+	// I'd like this code to be more automatic, needing only the module name and
+	// method list.
+#if HAVE_FILTERGRAPH
+	module = import_module(filter_graph_py, "filter_graph");
+	if (!module) goto error;
+	plotfilter = get_method(module, "plotfilter");
+	maketitle = get_method(module, "maketitle");
+	if (!plotfilter || !maketitle) goto error;
+	Py_DECREF(module);  // I think we can do this since the functions are still refed
+#endif
+
 	return true;
 error:
 	PyErr_Print();
@@ -293,6 +309,8 @@ error:
 
 void python_finish(void)
 {
+	Py_XDECREF(plotfilter);
+	Py_XDECREF(maketitle);
 	Py_FinalizeEx();
 }
 
