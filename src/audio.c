@@ -547,3 +547,50 @@ void set_audio_light(bool light)
 			error("Error re-starting audio input: %s", Pa_GetErrorText(err));
 	}
 }
+
+
+static float* _get_audio_data(uint64_t *start_time, unsigned int len)
+{
+	float *data = malloc(sizeof(*data) * len);
+	uint64_t time = *start_time;
+
+	/* This copies the data with the mutex held, unlike fill_buffers(), which gets
+	 * the timestamp while holding the mutex but does the coping unlocked. 
+	 * fill_buffers() only uses at most the 1st half of the audio ring buffer, so
+	 * the audio thread will need to write over half the ring buffer to modify the
+	 * audio being copied, i.e. it has 16 seconds to make the copy.  This function
+	 * could get audio from the end of the ring buffer, which might be modified on
+	 * the next audio thread callback.  */
+	pthread_mutex_lock(&audio_mutex);
+	const uint64_t ts = actx.info.light ? timestamp / 2 : timestamp;
+	const uint64_t audio_end = ts > pa_buffer_size ? ts - pa_buffer_size : 0;
+
+	// time -1 means from the end
+	if (time == (uint64_t)-1)
+		*start_time = time = ts - len;
+
+	if (time + len > ts || time < audio_end) {
+		pthread_mutex_unlock(&audio_mutex);
+		return NULL;
+	}
+
+	const int start = (write_pointer + pa_buffer_size - (ts - time)) % pa_buffer_size;
+	const unsigned chunk = MIN(len, pa_buffer_size - start);
+	memcpy(data, pa_buffers + start, chunk * sizeof(*pa_buffers));
+	if (chunk < len)
+		memcpy(data + chunk, pa_buffers, (len - chunk) * sizeof(*pa_buffers));
+
+	pthread_mutex_unlock(&audio_mutex);
+	return data;
+}
+
+float* get_audio_data(uint64_t start_time, unsigned int len)
+{
+	return _get_audio_data(&start_time, len);
+}
+
+float* get_last_audio_data(unsigned int len, uint64_t* timestamp)
+{
+	*timestamp = (uint64_t)-1;
+	return _get_audio_data(timestamp, len);
+}

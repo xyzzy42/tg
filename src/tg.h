@@ -158,6 +158,8 @@ int get_audio_device(void);
 int set_audio_device(int device, int *nominal_sr, double *real_sr, int hpf_freq, bool light);
 void set_audio_hpf(int cutoff);
 const struct filter* get_audio_hpf(void);
+float* get_audio_data(uint64_t start_time, unsigned int len);
+float* get_last_audio_data(unsigned int len, uint64_t *timestamp);
 
 /* computer.c */
 struct display;
