@@ -384,3 +384,4 @@ void python_finish(void);
 static inline bool python_init(const struct main_window* w) { UNUSED(w); return true; }
 static inline void python_finish(void) { }
 #endif
+void create_filter_plot(GtkImage* image, const struct filter* filter, int f0, int Fs, double Q);

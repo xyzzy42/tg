@@ -440,3 +440,16 @@ static void image_set_from_memview(GtkImage* image, PyObject* memview)
 		g_object_unref(pixbuf);
 	}
 }
+
+void create_filter_plot(GtkImage* image, const struct filter* filter,
+			int f0, int Fs, double Q)
+{
+	if (!python_initialized) return;
+
+	PyObject *title = PyObject_CallFunction(filter_graph.maketitle, "iid", f0, Fs, Q);
+	PyObject *memview = PyObject_CallFunction(filter_graph.plotfilter, "(ddd)(ddd)iN",
+		filter->a0, filter->a1, filter->a2, // tg's a/b are swapped from scipy
+		1.0, filter->b1, filter->b2,
+		Fs, title);
+	image_set_from_memview(image, memview);
+}
