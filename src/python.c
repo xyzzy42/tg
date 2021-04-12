@@ -360,6 +360,7 @@ static void unloadmodule(struct emptymod *module, size_t n) {
 
 // List of python modules to load.
 MODULE(filter_graph, plotfilter, maketitle);
+MODULE(spectrogram, plotspectrogram_beat, plotspectrogram_time);
 
 // Yuck, doesn't seem to be any way to pass something to this callback
 // other than a global.
@@ -385,6 +386,11 @@ bool python_init(const struct main_window* w)
 		goto error;
 #endif
 
+#if HAVE_SPECTROGRAM
+	if (!LOADMODULE(spectrogram))
+		goto error;
+#endif
+
 	python_initialized = true;
 	return true;
 error:
@@ -395,6 +401,7 @@ error:
 void python_finish(void)
 {
 	UNLOADMODULE(filter_graph);
+	UNLOADMODULE(spectrogram);
 	Py_FinalizeEx();
 }
 
@@ -452,4 +459,16 @@ void create_filter_plot(GtkImage* image, const struct filter* filter,
 		1.0, filter->b1, filter->b2,
 		Fs, title);
 	image_set_from_memview(image, memview);
+}
+
+void spectrogram_beat(struct main_window *w)
+{
+	PyObject* ret = PyObject_CallNoArgs(spectrogram.plotspectrogram_beat);
+	image_set_from_memview(GTK_IMAGE(w->signal_graph), ret);
+}
+
+void spectrogram_time(struct main_window *w, double length)
+{
+	PyObject* ret = PyObject_CallFunction(spectrogram.plotspectrogram_time, "d", length);
+	image_set_from_memview(GTK_IMAGE(w->signal_graph), ret);
 }

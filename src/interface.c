@@ -750,6 +750,20 @@ static void signal_dialog_show(GtkMenuItem *m, struct main_window *w)
 	gtk_widget_show_all(w->signal_dialog);
 }
 
+#if HAVE_SPECTROGRAM
+static void spectrogram_click(GtkButton *button, struct main_window *w)
+{
+	UNUSED(button);
+	spectrogram_beat(w);
+}
+
+static void spectrogramt_click(GtkButton *button, struct main_window *w)
+{
+	UNUSED(button);
+	spectrogram_time(w, gtk_spin_button_get_value(GTK_SPIN_BUTTON(w->spectime_spin)));
+}
+#endif
+
 static void init_signal_dialog(struct main_window *w)
 {
 	w->signal_dialog = gtk_dialog_new_with_buttons("Signal", NULL,
@@ -763,6 +777,26 @@ static void init_signal_dialog(struct main_window *w)
 	GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(w->signal_dialog));
 	GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
 	gtk_container_add(GTK_CONTAINER(content), vbox);
+
+#if HAVE_SPECTROGRAM
+	/* Spectrogram buttons and duration */
+	GtkWidget *sbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+	gtk_box_pack_start(GTK_BOX(vbox), sbox, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(sbox), gtk_label_new("Spectrograms"), FALSE, FALSE, 0);
+
+	GtkWidget *button = gtk_button_new_with_label("Last Beat");
+	g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(spectrogram_click), w);
+	gtk_box_pack_start(GTK_BOX(sbox), button, FALSE, FALSE, 0);
+
+	button = gtk_button_new_with_label("Seconds");
+	g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(spectrogramt_click), w);
+	gtk_box_pack_start(GTK_BOX(sbox), button, FALSE, FALSE, 0);
+
+	w->spectime_spin = gtk_spin_button_new_with_range(0.1, 1 << (NSTEPS + FIRST_STEP), 0.1);
+	gtk_spin_button_set_value(GTK_SPIN_BUTTON(w->spectime_spin), 1.0);
+	gtk_box_pack_start(GTK_BOX(sbox), w->spectime_spin, FALSE, FALSE, 0);
+#endif
 
 #ifdef HAVE_PYTHON
 	/* Output image */

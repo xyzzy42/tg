@@ -312,6 +312,7 @@ struct main_window {
 	/* Signal dialog */
 	GtkWidget *signal_dialog;
 	GtkWidget *signal_graph;
+	GtkWidget *spectime_spin;
 
 	struct output_panel *active_panel;
 
@@ -389,3 +390,5 @@ static inline bool python_init(const struct main_window* w) { UNUSED(w); return 
 static inline void python_finish(void) { }
 #endif
 void create_filter_plot(GtkImage* image, const struct filter* filter, int f0, int Fs, double Q);
+void spectrogram_beat(struct main_window *w);
+void spectrogram_time(struct main_window *w, double time_sec);
