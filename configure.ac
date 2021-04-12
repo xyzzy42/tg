@@ -43,8 +43,12 @@ AS_IF([test "x$with_python" = xyes], [
   )
   CPPFLAGS="$saved_CPPFLAGS"
 
+  AX_PYTHON_PACKAGE([libtfr])
   AX_PYTHON_PACKAGE([scipy])
   AX_PYTHON_PACKAGE([matplotlib])
+
+  AS_IF([test "x$have_libtfr" = xyes -a "x$have_matplotlib" = xyes],
+    [AC_DEFINE([HAVE_SPECTROGRAM]) enable_spectrogram=yes;], [enable_spectrogram=no;])
   AS_IF([test "x$have_scipy" = xyes -a "x$have_matplotlib" = xyes],
     [AC_DEFINE([HAVE_FILTERGRAPH]) enable_filter_graph=yes;], [enable_filter_graph=no;])
 ],[
@@ -78,4 +82,5 @@ AC_MSG_RESULT([
 
 	Python support:         ${with_python}
           Filter plot:          ${enable_filter_graph}
+          Spectrograms:         ${enable_spectrogram}
 ])

@@ -17,6 +17,7 @@ tg_timer_SOURCES = src/algo.c \
 if PYTHON
 tg_timer_SOURCES += src/python.c
 nodist_tg_timer_SOURCES = \
+	src/py/spectrogram.c \
 	src/py/filter_graph.c
 CLEANFILES = $(nodist_tg_timer_SOURCES)
 endif

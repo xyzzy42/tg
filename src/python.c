@@ -280,6 +280,9 @@ static PyObject* get_method(PyObject* module, const char* name)
 extern const char filter_graph_py[];
 static PyObject *plotfilter;
 static PyObject *maketitle;
+extern const char spectrogram_py[];
+static PyObject *plotspectrogram_beat;
+static PyObject *plotspectrogram_time;
 
 bool python_init(const struct main_window* w)
 {
@@ -301,6 +304,15 @@ bool python_init(const struct main_window* w)
 	Py_DECREF(module);  // I think we can do this since the functions are still refed
 #endif
 
+#if HAVE_SPECTROGRAM
+	module = import_module(spectrogram_py, "spectrogram");
+	if (!module) goto error;
+	plotspectrogram_beat = get_method(module, "plotspectrogram_beat");
+	plotspectrogram_time = get_method(module, "plotspectrogram_time");
+	if (!plotspectrogram_beat || !plotspectrogram_time) goto error;
+	Py_DECREF(module);
+#endif
+
 	return true;
 error:
 	PyErr_Print();
@@ -311,6 +323,8 @@ void python_finish(void)
 {
 	Py_XDECREF(plotfilter);
 	Py_XDECREF(maketitle);
+	Py_XDECREF(plotspectrogram_beat);
+	Py_XDECREF(plotspectrogram_time);
 	Py_FinalizeEx();
 }
 
@@ -380,6 +394,31 @@ error:
 	return NULL;
 }
 
+void spectrogram_beat(struct main_window *w)
+{
+	PyObject* ret = PyObject_CallNoArgs(plotspectrogram_beat);
+	if (!ret) {
+		PyErr_Print();
+		return;
+	}
+	GdkPixbuf* pixbuf = create_pixbuf_from_memview(ret);
+	// pixbuf now owns the memview and will free it
+	gtk_image_set_from_pixbuf(GTK_IMAGE(w->signal_graph), pixbuf);
+	g_object_unref(pixbuf);
+}
+
+void spectrogram_time(struct main_window *w, double length)
+{
+	PyObject* ret = PyObject_CallFunction(plotspectrogram_time, "d", length);
+	if (!ret) {
+		PyErr_Print();
+		return;
+	}
+	GdkPixbuf* pixbuf = create_pixbuf_from_memview(ret);
+	gtk_image_set_from_pixbuf(GTK_IMAGE(w->signal_graph), pixbuf);
+	g_object_unref(pixbuf);
+}
+
 /* I want something that lets me write:
 
 MODULE(filter_graph, \
@@ -391,7 +430,6 @@ It should figure out the buffer variable to get the code from, the module name, 
 names of the methods, and a struct with members named after the methods just from this.
 
 It kind of works below.
-
 */
 
 // Make a FOREACH macro
