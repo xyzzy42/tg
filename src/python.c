@@ -59,7 +59,161 @@ static int ConvertSizeT(PyObject* object, void* address)
 	return 1;
 }
 
+/******************************************************************************
+ * Functions for python extension module that python code can call to interact
+ * with the C app.  */
+
+/* Return a matplotlib colorspec for a GtkEntry's normal foreground color.  I
+ * don't like how this creates a dummy GtkEntry but don't know the alternative
+ * to gtk_widget_get_style_context() to get the GtkStyleContext for a widget by
+ * type.  */
+static PyObject* get_fgcolor(PyObject* self, PyObject* noargs)
+{
+	UNUSED(self); UNUSED(noargs);
+	static GdkRGBA color;
+	static bool init = false;
+
+	if (!init) {
+	    GtkWidget* dummy = gtk_entry_new();
+	    GtkStyleContext* style = gtk_widget_get_style_context(dummy);
+	    gtk_style_context_get_color(style, GTK_STATE_FLAG_NORMAL, &color);
+	    g_object_ref_sink(dummy);
+	    init = true;
+	}
+
+	return Py_BuildValue("dddd", color.red, color.green, color.blue, color.alpha);
+}
+
+/* Returns audio as a np.array(dtype=np.float32).  Returns None if the audio isn't in
+ * the ring buffer.  The object owns the array data and will free it when the array is
+ * GCed.  numpy didn't document how the data is freed exactly, so I hope it's with
+ * free().  */
+static PyObject* pack_audio(uint64_t timestamp, int length)
+{
+	float *data = get_audio_data(timestamp, length);
+	if (!data)
+		Py_RETURN_NONE;
+	npy_intp dims[1] = { length };
+	PyObject* array = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT, data);
+	PyArray_ENABLEFLAGS((PyArrayObject*)array, NPY_ARRAY_OWNDATA);
+	return array;
+}
+
+// getaudio(timestamp: int, length: int): np.array(float32) or None
+// Get audio at a timestamp.
+// Maybe extend this to allow negative timestamp to mean from the end?
+static PyObject* get_audio(PyObject* self, PyObject* args)
+{
+	UNUSED(self);
+	unsigned long long timestamp;
+	int length;
+
+	if (!PyArg_ParseTuple(args, "O&i", ConvertSizeT, &timestamp, &length)) {
+		PyErr_Print();
+		return NULL;
+	}
+	return pack_audio(timestamp, length);
+}
+
+// getlastaudio(length: int): np.array(float32), timestamp or None
+// Get most recent length samples of audio.  Returns timestamp of first (oldest) sample.
+static PyObject* get_lastaudio(PyObject* self, PyObject* arg)
+{
+	UNUSED(self);
+	const long length = PyLong_AsLong(PyNumber_Long(arg));
+	if (length == -1 && PyErr_Occurred())
+		return NULL;
+
+	uint64_t timestamp;
+	float* data = get_last_audio_data(length, &timestamp);
+	if (!data)
+		Py_RETURN_NONE;
+	npy_intp dims[1] = { length };
+	PyObject* array = PyArray_SimpleNewFromData(1, dims, NPY_FLOAT, data);
+	PyArray_ENABLEFLAGS((PyArrayObject*)array, NPY_ARRAY_OWNDATA);
+	return Py_BuildValue("NK", array, (unsigned long long)timestamp);
+}
+
+// getsamplerate(): float
+// Return current sample rate.	This is in the units timestamps use and reflects the
+// lite mode decimation (I think) and calibration.
+static PyObject* get_samplerate(PyObject* self, PyObject* noargs)
+{
+	UNUSED(noargs);
+	const struct main_window* w = get_w(self);
+	return PyFloat_FromDouble(w->active_snapshot->sample_rate);
+}
+
+// getevents(): np.array(dtype=np.uint64) or None
+// Timestamps of every beat.
+// Data is borrowed and object shouldn't be saved across calls without making a copy.
+static PyObject* get_events(PyObject* self, PyObject* args)
+{
+	UNUSED(args);
+	const struct main_window* w = get_w(self);
+	const struct snapshot* snst = w->active_snapshot;
+	if (snst->events_count == 0)
+		Py_RETURN_NONE;
+	// FIXME: handle wrap of circular buffer
+	// FIXME: might not start at 0, should end at events_wp and go backward
+	if (snst->events_wp != snst->events_count - 1)
+		return NULL; // lazy, see above
+	// lifetime of data might not be long enough, need care
+	npy_intp dims[1] = { snst->events_count };
+	return PyArray_SimpleNewFromData(1, dims, NPY_UINT64, snst->events);
+}
+
+// getlastevents(): tuple(np.uint64, np_uint64)
+// Timestamps of the last, as in oldest, tic and toc events still in the processing
+// buffer.
+static PyObject* get_last_events(PyObject* self, PyObject* noargs)
+{
+	UNUSED(noargs);
+	const struct main_window* w = get_w(self);
+	const struct snapshot* snst = w->active_snapshot;
+	return Py_BuildValue("KK", 
+		(unsigned long long)snst->pb->last_tic, (unsigned long long)snst->pb->last_toc);
+}
+
+// getbeataudio(timestamp) : (np.array(dtype=float32), int)
+// Return what tg considers the beat audio for the one beat at the supplied timestamp.
+// The 2nd item is the offset from the start that corresponds to timestamp.
+static PyObject* get_beat_audio(PyObject* self, PyObject* arg)
+{
+	const struct main_window* w = get_w(self);
+	const struct snapshot* snst = w->active_snapshot;
+	const uint64_t timestamp = PyLong_AsSize_t(PyNumber_Long(arg));
+
+	if (timestamp == (size_t)-1 && PyErr_Occurred())
+		return NULL;
+
+	const unsigned offset = NEGATIVE_SPAN * snst->sample_rate / 1000;
+	const unsigned ticklen = (NEGATIVE_SPAN + POSITIVE_SPAN) * snst->sample_rate / 1000;
+	if (timestamp < offset)
+		Py_RETURN_NONE; // throw range exception or something
+	return Py_BuildValue("Ni", pack_audio(timestamp - offset, ticklen), offset);
+}
+
+// getpulses(): (float, float)
+// Return tic and toc pulse lengths, in seconds
+static PyObject* get_pulses(PyObject* self, PyObject* noargs)
+{
+	UNUSED(noargs);
+	const struct main_window* w = get_w(self);
+	const struct snapshot* snst = w->active_snapshot;
+
+	return Py_BuildValue("dd", snst->pb->tic_pulse, snst->pb->toc_pulse);
+}
+
 static PyMethodDef methods[] = {
+	{"fgcolor",	  get_fgcolor,	  METH_NOARGS, "Get GtkImage's normal state foreground color" },
+	{"getaudio",	  get_audio,	  METH_VARARGS,"Return nparray of audio data at a timestamp" },
+	{"getlastaudio",  get_lastaudio,  METH_O,      "Return most recent audio data and timestamp" },
+	{"getevents",	  get_events,	  METH_NOARGS, "Get nparray of current beat timestamps" },
+	{"getlastevents", get_last_events,METH_NOARGS, "Return last tic and toc times" },
+	{"getsr",	  get_samplerate, METH_NOARGS, "Get calibrated sample rate" },
+	{"getbeataudio",  get_beat_audio, METH_O,      "Get audio for a tick, supply timestamp" },
+	{"getpulses",	  get_pulses,	  METH_NOARGS, "Get length of samples of tic,toc pulses" },
 	{ }
 };
 
