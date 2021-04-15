@@ -136,4 +136,28 @@ sudo dnf install python3-devel python3-numpy python3-scipy python3-matplotlib
 pip install --user libtfr
 ```
 
-And run `configure` with the argument `--with-python`.
+And run the configure script with the `--with-python` option.
+
+### Compiling on Macintosh
+
+```sh
+brew install pkg-config autoconf automake libtool gtk+3 portaudio fftw gnome-icon-theme
+git clone https://github.com/vacaboja/tg.git
+cd tg
+./autogen.sh
+./configure
+make
+```
+
+To build the Python extension, install some additional packages.
+
+```sh
+brew install python numpy scipy
+pip3 install matplotlib
+```
+
+And then run the configure script as follows:
+```sh
+NUMPYINCLUDE=`python3 -c "import numpy ; print(numpy.get_include())"`
+CFLAGS="-I$NUMPYINCLUDE" PYTHON_VERSION=3 ./configure --with-python
+```
