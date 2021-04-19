@@ -1,3 +1,9 @@
+tg-timer (0.6.0-tpiepho-1) UNRELEASED; urgency=medium
+
+  * Lots of changes, also unlogged here.
+
+ -- Trent Piepho <tpiepho@gmail.com>  Sun, 18 Apr 2021 23:24:21 -0700
+
 tg-timer (0.5.2-1) UNRELEASED; urgency=medium
 
   * We don't keep a changelog.
