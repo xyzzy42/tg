@@ -1,10 +1,10 @@
 <?xml version='1.0' encoding='windows-1252'?>
 <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
   <Product Name='Tg' Id='0a898d92-20ab-4190-ac94-e34703f4b47e' UpgradeCode='088fdac7-fc91-4881-a2db-eed04425a207'
-    Language='1033' Codepage='1252' Version='0.5.2' Manufacturer='Marcello Mamino'>
+    Language='1033' Codepage='1252' Version='0.6.0-tpiepho' Manufacturer='Marcello Mamino'>
 
     <Package Id='*' Keywords='Installer'
-      Description='Tg 0.5.2 Installer'
+      Description='Tg 0.6.0-tpiepho Installer'
       Manufacturer='Marcello Mamino'
       InstallerVersion='100' Languages='1033' Compressed='yes' SummaryCodepage='1252' />
 
@@ -19,8 +19,8 @@
 
           <Component Id='MainExecutable' Guid='21c636d3-3c08-4151-8dc7-626afb13fa4d'>
             <File Id='TgEXE' Name='tg.exe' DiskId='1' Source='tg.exe' KeyPath='yes'>
-              <Shortcut Id='startmenuTg' Directory='ProgramMenuDir' Name='Tg 0.5.2' WorkingDirectory='INSTALLDIR' Icon='tg.exe' IconIndex='0' Advertise='yes' />
-              <Shortcut Id='desktopTg' Directory='DesktopFolder' Name='Tg 0.5.2' WorkingDirectory='INSTALLDIR' Icon='tg.exe' IconIndex='0' Advertise='yes' />
+              <Shortcut Id='startmenuTg' Directory='ProgramMenuDir' Name='Tg 0.6.0-tpiepho' WorkingDirectory='INSTALLDIR' Icon='tg.exe' IconIndex='0' Advertise='yes' />
+              <Shortcut Id='desktopTg' Directory='DesktopFolder' Name='Tg 0.6.0-tpiepho' WorkingDirectory='INSTALLDIR' Icon='tg.exe' IconIndex='0' Advertise='yes' />
             </File>
             <File Id='TgDocumentICO' Name='tg-document.ico' Source='tg-document.ico' />
             <ProgId Id='TgjFile' Description='Tg data file' Icon='TgDocumentICO'>
@@ -42,7 +42,7 @@
       </Directory>
 
       <Directory Id='ProgramMenuFolder' Name='Programs'>
-        <Directory Id='ProgramMenuDir' Name='Tg 0.5.2'>
+        <Directory Id='ProgramMenuDir' Name='Tg 0.6.0-tpiepho'>
           <Component Id='ProgramMenuDir' Guid='f6c27708-4cbe-458c-b4c0-d3a37bfeebb0'>
             <RemoveFolder Id='ProgramMenuDir' On='uninstall' />
             <RegistryValue Root='HKCU' Key='Software\[Manufacturer]\[ProductName]' Type='string' Value='' KeyPath='yes' />
