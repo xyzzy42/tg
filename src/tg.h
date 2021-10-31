@@ -189,6 +189,7 @@ struct snapshot {
 
 	int events_count;
 	uint64_t *events; // used in cal+timegrapher mode
+	unsigned char *events_tictoc;	//< Tic or Toc for each event
 	int events_wp; // used in cal+timegrapher mode
 	uint64_t events_from; // used only in timegrapher mode
 
