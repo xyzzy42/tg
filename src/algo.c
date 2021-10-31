@@ -82,7 +82,7 @@ void setup_buffers(struct processing_buffers *b)
 	b->plan_g = fftwf_plan_dft_c2r_1d(b->sample_rate, b->slice_fft, b->slice_wf, FFTW_ESTIMATE);
 	b->lpf = malloc(sizeof(struct filter));
 	make_lp(b->lpf,(double)FILTER_CUTOFF/b->sample_rate);
-	b->events = malloc(EVENTS_MAX * sizeof(uint64_t));
+	b->events = malloc(EVENTS_MAX * sizeof(*b->events));
 	b->ready = 0;
 #ifdef DEBUG
 	b->debug_size = b->sample_count;
@@ -124,8 +124,8 @@ struct processing_buffers *pb_clone(struct processing_buffers *p)
 	new->waveform = malloc(new->sample_count * sizeof(float));
 	memcpy(new->waveform, p->waveform, new->sample_count * sizeof(float));
 	if(p->events) {
-		new->events = malloc(EVENTS_MAX * sizeof(uint64_t));
-		memcpy(new->events, p->events, EVENTS_MAX * sizeof(uint64_t));
+		new->events = malloc(EVENTS_MAX * sizeof(*new->events));
+		memcpy(new->events, p->events, EVENTS_MAX * sizeof(*new->events));
 	} else
 		new->events = NULL;
 

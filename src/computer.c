@@ -38,7 +38,7 @@ struct snapshot *snapshot_clone(struct snapshot *s)
 	t->events_count = count_events(s);
 	if(t->events_count) {
 		t->events_wp = t->events_count - 1;
-		t->events = malloc(t->events_count * sizeof(uint64_t));
+		t->events = malloc(t->events_count * sizeof(*t->events));
 		int i, j;
 		for(i = t->events_wp, j = s->events_wp; i >= 0; i--) {
 			t->events[i] = s->events[j];
@@ -216,7 +216,7 @@ static void *computing_thread(void *void_computer)
 			c->actv->cal_percent = 0;
 		}
 		if(calibrate != c->actv->calibrate)
-			memset(c->actv->events,0,c->actv->events_count*sizeof(uint64_t));
+			memset(c->actv->events,0,c->actv->events_count*sizeof(*c->actv->events));
 		c->actv->calibrate = calibrate;
 
 		if(c->actv->calibrate) {
@@ -232,7 +232,7 @@ static void *computing_thread(void *void_computer)
 				snapshot_destroy(c->curr);
 			if(c->clear_trace) {
 				if(!calibrate)
-					memset(c->actv->events,0,c->actv->events_count*sizeof(uint64_t));
+					memset(c->actv->events,0,c->actv->events_count*sizeof(*c->actv->events));
 				c->clear_trace = 0;
 			}
 			c->curr = snapshot_clone(c->actv);
@@ -269,7 +269,7 @@ struct computer *start_computer(int nominal_sr, int bph, double la, int cal, int
 	if(light) nominal_sr /= 2;
 	set_audio_light(light);
 
-	struct processing_buffers *p = malloc(NSTEPS * sizeof(struct processing_buffers));
+	struct processing_buffers *p = malloc(NSTEPS * sizeof(*p));
 	int first_step = light ? FIRST_STEP_LIGHT : FIRST_STEP;
 	int i;
 	for(i=0; i<NSTEPS; i++) {
@@ -278,16 +278,16 @@ struct computer *start_computer(int nominal_sr, int bph, double la, int cal, int
 		setup_buffers(&p[i]);
 	}
 
-	struct processing_data *pd = malloc(sizeof(struct processing_data));
+	struct processing_data *pd = malloc(sizeof(*pd));
 	pd->buffers = p;
 	pd->last_tic = 0;
 	pd->is_light = light;
 	pd->last_step = 0;
 
-	struct calibration_data *cd = malloc(sizeof(struct calibration_data));
+	struct calibration_data *cd = malloc(sizeof(*cd));
 	setup_cal_data(cd);
 
-	struct snapshot *s = malloc(sizeof(struct snapshot));
+	struct snapshot *s = malloc(sizeof(*s));
 	s->timestamp = 0;
 	s->nominal_sr = nominal_sr;
 	s->pb = NULL;
@@ -295,8 +295,7 @@ struct computer *start_computer(int nominal_sr, int bph, double la, int cal, int
 	s->calibrate = 0;
 	s->signal = 0;
 	s->events_count = EVENTS_COUNT;
-	s->events = malloc(EVENTS_COUNT * sizeof(uint64_t));
-	memset(s->events,0,EVENTS_COUNT * sizeof(uint64_t));
+	s->events = calloc(EVENTS_COUNT, sizeof(*s->events));
 	s->events_wp = 0;
 	s->events_from = 0;
 	s->bph = bph;
@@ -305,7 +304,7 @@ struct computer *start_computer(int nominal_sr, int bph, double la, int cal, int
 	s->is_light = light;
 	s->d = NULL;
 
-	struct computer *c = malloc(sizeof(struct computer));
+	struct computer *c = malloc(sizeof(*c));
 	c->cdata = cd;
 	c->pdata = pd;
 	c->actv = s;
