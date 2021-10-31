@@ -80,6 +80,12 @@
 #define BITMASK(n) ((1u << (n)) - 1u)
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+/** Hold timestamp and type of a vibration. */
+struct event {
+	uint64_t pos;	//< Position, may be relative or absolute timestamp
+	bool tictoc;	//< Is this vibration the tic or toc half-cycle?
+};
+
 /* algo.c */
 struct processing_buffers {
 	int sample_rate;	//< Nominal sampling rate in Hz
@@ -101,7 +107,7 @@ struct processing_buffers {
 	uint64_t timestamp;	//< Absolute timestamp of end of buffer, timestamp - sample_count is time at start of buffer.
 	uint64_t last_tic, last_toc, events_from;
 	/** Dynamically allocated array of events, using absolute timestamps.  Terminated by 0 value for position. */
-	uint64_t *events;
+	struct event *events;
 #ifdef DEBUG
 	int debug_size;
 	float *debug;

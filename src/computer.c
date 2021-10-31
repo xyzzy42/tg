@@ -162,13 +162,16 @@ static void compute_events(struct computer *c)
 	struct snapshot *s = c->actv;
 	struct processing_buffers *p = c->actv->pb;
 	if(p && !s->is_old) {
-		uint64_t last = s->events[s->events_wp];
+		/* Add new events from p into s.  last is the timestamp where new events
+		 * start.  It's a half-vibration after the last event, to avoid adding
+		 * the same event twice with slightly different timestamps.  */
+		const uint64_t last = s->events[s->events_wp] + floor(p->period / 4);
 		int i;
-		for(i=0; i<EVENTS_MAX && p->events[i]; i++)
-			if(p->events[i] > last + floor(p->period / 4)) {
+		for(i=0; i<EVENTS_MAX && p->events[i].pos; i++)
+			if(p->events[i].pos > last) {
 				if(++s->events_wp == s->events_count) s->events_wp = 0;
-				s->events[s->events_wp] = p->events[i];
-				debug("event at %llu\n",s->events[s->events_wp]);
+				s->events[s->events_wp] = p->events[i].pos;
+				debug("event at %llu\n", s->events[s->events_wp]);
 			}
 		s->events_from = p->timestamp - ceil(p->period);
 	} else {
