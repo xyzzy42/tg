@@ -223,6 +223,31 @@ static int scan_uint64_t_array(FILE *f, uint64_t **a, uint64_t max_l, uint64_t *
 	return 0;
 }
 
+static int serialize_bool_array(FILE *f, const unsigned char *a, uint64_t len)
+{
+	uint64_t i;
+	if(0 > fprintf(f, "A%"PRIu64";\n", len)) return 1;
+	for(i = 0; i < len; i++)
+		if(serialize_int(f, a[i])) return 1;
+	return 0;
+}
+
+static int scan_bool_array(FILE *f, unsigned char **a, uint64_t max_l, uint64_t *len)
+{
+	uint64_t l,i;
+	int n = 0;
+	if(1 != fscanf(f, " A%"SCNu64";%n", &l, &n) || !n) return 1;
+	if(max_l && l > max_l) return 1;
+	if(!*a) *a = malloc(l*sizeof(**a));
+	for(i = 0; i < l; i++) {
+		int j;
+		if(scan_int(f, &j)) return 1;
+		(*a)[i] = !!j;
+	}
+	if(len) *len = l;
+	return 0;
+}
+
 static int serialize_float_array(FILE *f, float *a, uint64_t len)
 {
 	uint64_t i;
@@ -327,6 +352,8 @@ static int serialize_snapshot(FILE *f, struct snapshot *s, char *name)
 	if(serialize_float_array(f, s->pb->waveform, s->pb->sample_count)) return 1;
 	if(make_label(f, "events")) return 1;
 	if(serialize_uint64_t_array(f, s->events, s->events_count)) return 1;
+	if(make_label(f, "events_tictoc")) return 1;
+	if(serialize_bool_array(f, s->events_tictoc, s->events_count)) return 1;
 	SERIALIZE(int,pb->sample_rate);
 	SERIALIZE(double,pb->period);
 	SERIALIZE(double,pb->waveform_max);
@@ -404,6 +431,14 @@ static int scan_snapshot(FILE *f, struct snapshot **s, char **name)
 			(*s)->events_count = x;
 			continue;
 		}
+		if(!strcmp("events_tictoc", l)) {
+			debug("serializer: scanning events_tictoc\n");
+			uint64_t x;
+			if(	(*s)->events_tictoc ||
+				scan_bool_array(f, &((*s)->events_tictoc), INT_MAX, &x)) goto error;
+			// Check that matches events_count?
+			continue;
+		}
 		SCAN(int,pb->sample_rate);
 		SCAN(double,pb->period);
 		SCAN(double,pb->waveform_max);
@@ -446,6 +481,10 @@ static int scan_snapshot(FILE *f, struct snapshot **s, char **name)
 	debug("serializer: checking events\n");
 	if((*s)->events_count && (*s)->events_wp >= (*s)->events_count) goto error;
 	if((*s)->signal > NSTEPS) (*s)->signal = NSTEPS;
+	debug("serializer: checking events_tictoc\n");
+	if (!(*s)->events_tictoc)
+		(*s)->events_tictoc = calloc((*s)->events_count, sizeof(*(*s)->events_tictoc));
+	// Keep track of events_tictic count and compare to (*s)->events_count
 	debug("serializer: checking sample_rate\n");
 	if((*s)->sample_rate <= 0) goto error;
 	debug("serializer: checking guessed_bph\n");

@@ -40,14 +40,17 @@ struct snapshot *snapshot_clone(struct snapshot *s)
 	if(t->events_count) {
 		t->events_wp = t->events_count - 1;
 		t->events = malloc(t->events_count * sizeof(*t->events));
+		t->events_tictoc = malloc(t->events_count * sizeof(*t->events_tictoc));
 		int i, j;
 		for(i = t->events_wp, j = s->events_wp; i >= 0; i--) {
 			t->events[i] = s->events[j];
+			t->events_tictoc[i] = s->events_tictoc[j];
 			if(--j < 0) j = s->events_count - 1;
 		}
 	} else {
 		t->events_wp = 0;
 		t->events = NULL;
+		t->events_tictoc = NULL;
 	}
 	if(s->d) {
 		t->d = malloc(sizeof(*t->d));
@@ -60,6 +63,7 @@ void snapshot_destroy(struct snapshot *s)
 {
 	if(s->pb) pb_destroy_clone(s->pb);
 	if(s->d) free(s->d);
+	free(s->events_tictoc);
 	free(s->events);
 	free(s);
 }
@@ -171,6 +175,7 @@ static void compute_events(struct computer *c)
 			if(p->events[i].pos > last) {
 				if(++s->events_wp == s->events_count) s->events_wp = 0;
 				s->events[s->events_wp] = p->events[i].pos;
+				s->events_tictoc[s->events_wp] = p->events[i].tictoc;
 				debug("event at %llu\n", s->events[s->events_wp]);
 			}
 		s->events_from = p->timestamp - ceil(p->period);
@@ -300,6 +305,7 @@ struct computer *start_computer(int nominal_sr, int bph, double la, int cal, int
 	s->signal = 0;
 	s->events_count = EVENTS_COUNT;
 	s->events = calloc(EVENTS_COUNT, sizeof(*s->events));
+	s->events_tictoc = calloc(EVENTS_COUNT, sizeof(*s->events_tictoc));
 	s->events_wp = 0;
 	s->events_from = 0;
 	s->bph = bph;
