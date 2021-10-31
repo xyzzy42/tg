@@ -25,7 +25,7 @@ static const double scale_min = 1, scale_max = 100;
 
 static inline double spb(const struct snapshot *snst);
 
-cairo_pattern_t *black,*white,*red,*green,*blue,*blueish,*yellow;
+static cairo_pattern_t *black,*white,*red,*green,*blue,*blueish,*yellow,*goldenrod;
 
 static void define_color(cairo_pattern_t **gc,double r,double g,double b)
 {
@@ -41,6 +41,7 @@ void initialize_palette()
 	define_color(&blue,0,0,1);
 	define_color(&blueish,0,0,.5);
 	define_color(&yellow,1,1,0);
+	define_color(&goldenrod,.980,.761,.020);
 }
 
 static void draw_graph(double a, double b, cairo_t *c, struct processing_buffers *p, GtkWidget *da)
@@ -328,6 +329,7 @@ static void expose_waveform(
 			struct output_panel *op,
 			GtkWidget *da,
 			cairo_t *c,
+			cairo_pattern_t *color,
 			int (*get_offset)(struct processing_buffers*),
 			double (*get_pulse)(struct processing_buffers*))
 {
@@ -427,7 +429,7 @@ static void expose_waveform(
 
 		draw_graph(a,b,c,p,da);
 
-		cairo_set_source(c,old?yellow:white);
+		cairo_set_source(c, old ? yellow : color);
 		cairo_stroke_preserve(c);
 		cairo_fill(c);
 
@@ -471,14 +473,14 @@ static double get_toc_pulse(struct processing_buffers *p)
 static gboolean tic_draw_event(GtkWidget *widget, cairo_t *c, struct output_panel *op)
 {
 	UNUSED(widget);
-	expose_waveform(op, op->tic_drawing_area, c, get_tic, get_tic_pulse);
+	expose_waveform(op, op->tic_drawing_area, c, white, get_tic, get_tic_pulse);
 	return FALSE;
 }
 
 static gboolean toc_draw_event(GtkWidget *widget, cairo_t *c, struct output_panel *op)
 {
 	UNUSED(widget);
-	expose_waveform(op, op->toc_drawing_area, c, get_toc, get_toc_pulse);
+	expose_waveform(op, op->toc_drawing_area, c, goldenrod, get_toc, get_toc_pulse);
 	return FALSE;
 }
 
@@ -749,6 +751,7 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 		if (chart_phase < 0) chart_phase += chart_width;
 		const double column = round(chart_phase / pixel_width);
 
+		cairo_set_source(c, snst->events_tictoc[idx] ? white : goldenrod);
 		box(c, column, row);
 		if (column < width - strip_width)
 			box(c, column + strip_width, row);
