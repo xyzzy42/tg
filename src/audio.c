@@ -27,12 +27,16 @@ static unsigned int write_pointer = 0;
 static uint64_t timestamp = 0;
 static pthread_mutex_t audio_mutex;
 
-/** A biquadratic filter.
- * Saves the delay taps to allow the filter to continue across multiple calls. */
-struct biquad_filter {
-	struct filter f;	//!< Filter coefficients, F(z) = a(z) / b(z)
-	double        z1, z2;	//!< Delay taps
-	int	      frequency;//!< Cut-off frequency
+
+/** Filter chain.
+ *
+ */
+struct filter_chain {
+	struct biquad_filter *filters;
+	unsigned int count;
+	unsigned int max;
+	pthread_mutex_t mutex;
+	double sample_rate;
 };
 
 /** Data for PA callback to use */
@@ -76,6 +80,8 @@ static void init_audio_hpf(struct biquad_filter *filter, int cutoff, double samp
 	filter->z1 = 0.0;
 	filter->z2 = 0.0;
 	filter->frequency = cutoff;
+	filter->bw = M_SQRT1_2;
+	filter->type = HIGHPASS;
 }
 
 /** Set High pass filter cutoff frequency.
@@ -112,6 +118,219 @@ static void apply_biquad(struct biquad_filter *f, float *data, unsigned int coun
 	}
 	f->z1 = z1;
 	f->z2 = z2;
+}
+
+/* Functions for working on a chain of biquad filters.  A chain contains zero or more filters. 
+ * It will grow as needed.  There are functions to insert, remove, access, enable, and apply
+ * filters.  A filter may be in the chain but not be enabled, which means it will be skipped
+ * when the chain is applied to audio.
+ *
+ * The chain is designed to be used simultaneously from two threads and internally contains the
+ * necessary locking.  The manner in which the two threads access the chain is different:  One
+ * thread is an audio processing thread the other a control thread. 
+ *
+ * The audio processing thread:
+ *   Applies the filters to audio, but not does not change the chain itself.
+ *   Has read/write access to the delay taps, but read-only access to all other fields.
+ *   Does not care about any values of unenabled filters.
+ *   Will acquire the chain's lock for its entire access to the filter.
+ *   May hold the lock for a longer time.
+ *
+ * The control thread:
+ *   Has read/write access to the eveything in the chain, but should not access the delay taps.
+ *   Does not acquire the chain's lock for read-only accesses to the chain.
+ *   Can perform read/write access on an unenabled filter without a lock (but can not delete the
+ *   filter).
+ *   Only acquires the lock for very short periods of time.
+ *
+ * This design is meant to allow a read-time audio processing thread the least chance of being
+ * blocked by access from the control thread.  The control thread needs to lock to query the
+ * chain and when modifying it needs a brief lock to insert new blank filter or disable an
+ * existing filter, which can then be modified without a lock while disabled, and the a brief
+ * lock to enable the filter.  */
+
+/* Create a new blank chain */
+struct filter_chain *filter_chain_init(double sample_rate)
+{
+	struct filter_chain *chain = malloc(sizeof(*chain));
+	chain->filters = malloc(sizeof(*chain->filters));
+	chain->count = 0;
+	chain->max = 1;
+	chain->sample_rate = sample_rate;
+	pthread_mutex_init(&chain->mutex, NULL);
+	return chain;
+}
+
+/* Insert empty non-enabled filter at index.  The index should be at most 1 greater than the
+ * index of the last filter, i.e. no gaps.  (unsigned)-1 will insert at the end.  Returns a
+ * pointer to the new filters (or NULL on failure, which should not happena.) */
+struct biquad_filter *filter_chain_insert(struct filter_chain *chain, unsigned index)
+{
+	if (index == (unsigned)-1) {
+		index = chain->count;
+	} else if (index > chain->count) {
+		printf("Insert after end of chain! Index %u with only %u filters\n", index, chain->count);
+		return NULL;
+	}
+
+	pthread_mutex_lock(&chain->mutex);
+	if (chain->count == chain->max) {
+		chain->max = (unsigned)(chain->max * 1.5) + 1;
+		/* Doing this re-alloc while holding the lock is a flaw.  We should allocate the
+		 * memory with the lock released, then copy with it held.  We could even copy
+		 * everything but the delay taps with it not held.  */
+		chain->filters = realloc(chain->filters, chain->max * sizeof(*chain->filters));
+	}
+	memcpy(&chain->filters[index+1], &chain->filters[index], sizeof(*chain->filters) * (chain->count - index));
+	chain->filters[index].enabled = false;
+	chain->count++;
+	pthread_mutex_unlock(&chain->mutex);
+
+	memset(&chain->filters[index], 0, sizeof(chain->filters[index]));
+
+	return &chain->filters[index];
+}
+
+/* Remove a filter from the chain.  It needs to exist in the chain. */
+void filter_chain_remove(struct filter_chain *chain, unsigned index)
+{
+	if (index >= chain->count)
+		return;
+	pthread_mutex_lock(&chain->mutex);
+	memcpy(&chain->filters[index], &chain->filters[index+1], sizeof(*chain->filters) * (chain->count - index - 1));
+	chain->count--;
+	pthread_mutex_unlock(&chain->mutex);
+}
+
+/* Return pointer to filter.  Returns NULL if i is past the end of available filters */
+const struct biquad_filter *filter_chain_get(const struct filter_chain *chain, unsigned index)
+{
+	if (index >= chain->count)
+		return NULL;
+	return &chain->filters[index];
+}
+
+unsigned int filter_chain_count(const struct filter_chain *chain)
+{
+	return chain->count;
+}
+
+/* Enable or disable a filter */
+bool filter_chain_enable(struct filter_chain *chain, unsigned index, bool enable)
+{
+	if (index >= chain->count || chain->filters[index].enabled == enable)
+		return false;
+	pthread_mutex_lock(&chain->mutex);
+	chain->filters[index].enabled = enable;
+	pthread_mutex_unlock(&chain->mutex);
+	return true;
+}
+
+/* Program a filter */
+static void _filter_set_coefficients(struct filter *f, enum bitype type, double f0_fS, double q, double gain)
+{
+	switch (type) {
+		case HIGHPASS: make_hp(f, f0_fS); break;
+		case LOWPASS: make_lp(f, f0_fS); break;
+		case BANDPASS: make_bp(f, f0_fS, q); break;
+		case NOTCH: make_notch(f, f0_fS, q); break;
+		case ALLPASS: make_ap(f, f0_fS, q); break;
+		case PEAK: make_peak(f, f0_fS, q, gain); break;
+		default: break;
+	}
+}
+
+/* Set or update a filter.  Takes the chain lock for enabled filters, but locking isn't
+ * needed for disabled filters.  Returns false if the filter didn't need to be updated.  */
+bool filter_chain_set_filter(struct filter_chain *chain, struct biquad_filter *filter,
+	enum bitype type, unsigned freq, double q, double gain)
+{
+	if (filter->type == type && filter->frequency == freq && filter->bw == q && filter->gain == gain)
+		return false;
+
+	const double f0_fS = freq / chain->sample_rate;
+
+	if (filter->enabled)
+		pthread_mutex_lock(&chain->mutex);
+
+	filter->type = type;
+	filter->frequency = freq;
+	filter->bw = q;
+	filter->gain = gain;
+	_filter_set_coefficients(&filter->f, type, f0_fS, q, gain);
+
+	if (filter->enabled)
+		pthread_mutex_unlock(&chain->mutex);
+
+	return true;
+}
+
+/* Like filter_chain_set_filter(), but using index rather than a filter pointer */
+bool filter_chain_set(struct filter_chain *chain, unsigned index,
+	enum bitype type, unsigned freq, double q, double gain)
+{
+	if (index >= chain->count)
+		return false;
+	struct biquad_filter *filter = &chain->filters[index];
+	return filter_chain_set_filter(chain, filter, type, freq, q, gain);
+}
+
+/* Move filter in position src to position dst */
+void filter_chain_move(struct filter_chain *chain, unsigned src, unsigned dst)
+{
+	if (src == dst || src >= chain->count || dst >= chain->count)
+		return;
+	struct biquad_filter *newf = filter_chain_insert(chain, dst);
+	if (dst <= src)
+		src++;
+
+	pthread_mutex_lock(&chain->mutex);
+	memcpy(newf, &chain->filters[src], sizeof(*newf));
+	chain->filters[src].enabled = false;
+	pthread_mutex_unlock(&chain->mutex);
+	filter_chain_remove(chain, src);
+}
+
+/* Adjusts existing filters to new sample rate.  Does nothing if rate is unchanged. */
+static bool filter_chain_rate(struct filter_chain *chain, double sample_rate)
+{
+	if (chain->sample_rate == sample_rate)
+		return false;
+
+	/* We are lazy with locking, only need it around enabled filters */
+	pthread_mutex_lock(&chain->mutex);
+	unsigned i;
+	for (i = 0; i < chain->count; i++) {
+		struct biquad_filter *filter = &chain->filters[i];
+		_filter_set_coefficients(&filter->f, filter->type, filter->frequency / sample_rate, filter->bw, filter->gain);
+	}
+	pthread_mutex_unlock(&chain->mutex);
+
+	chain->sample_rate = sample_rate;
+	return true;
+}
+
+/* Apply filter chain to audio data.  Data is fixed as the global array pa_buffers.  Process
+ * data over range [start, stop).  This might wrap.  */
+static void filter_chain_apply(struct filter_chain *chain, float *data, unsigned start, unsigned stop, unsigned size)
+{
+	unsigned i;
+
+	/* Apply each filter in turn on a single contiguous chunk of the ciruclar buffer,
+	   of which there is either 1 or 2 chunks. */
+	const unsigned len = start < stop ? stop - start : size - start;
+
+	pthread_mutex_lock(&chain->mutex);
+	// First chunk is either [start, stop) or [start, size)
+	for (i = 0; i < chain->count; i++)
+		if (chain->filters[i].enabled)
+			apply_biquad(&chain->filters[i], data + start, len);
+	// Second chunk, when wrapped, is [0, stop)
+	if (stop <= start)
+		for (i = 0; i < chain->count; i++)
+			if (chain->filters[i].enabled)
+				apply_biquad(&chain->filters[i], data, stop);
+	pthread_mutex_unlock(&chain->mutex);
 }
 
 static int paudio_callback(const void *input_buffer,

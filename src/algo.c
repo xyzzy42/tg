@@ -29,7 +29,7 @@ void make_hp(struct filter *f, double freq)
 	f->b2 = (1 - K * sqrt(2) + K * K) * norm;
 }
 
-static void make_lp(struct filter *f, double freq)
+void make_lp(struct filter *f, double freq)
 {
 	double K = tan(M_PI * freq);
 	double norm = 1 / (1 + K * sqrt(2) + K * K);
@@ -38,6 +38,58 @@ static void make_lp(struct filter *f, double freq)
 	f->a2 = f->a0;
 	f->b1 = 2 * (K * K - 1) * norm;
 	f->b2 = (1 - K * sqrt(2) + K * K) * norm;
+}
+
+void make_bp(struct filter *f, double freq, double bw)
+{
+	const double ω0 = 2 * M_PI * freq;
+	// subsitute bw = bw * freq
+	const double α = sin(ω0) * sinh(M_LN2 * bw * M_PI / sin(ω0));
+	const double norm = 1 / (1 + α);  // norm = (1 / b0)
+	f->a0 = norm * α;
+	f->a1 = 0;
+	f->a2 = norm * -α;
+	f->b1 = norm * -2.0 * cos(ω0);
+	f->b2 = norm * (1.0 - α);
+}
+
+void make_notch(struct filter *f, double freq, double bw)
+{
+	const double ω0 = 2 * M_PI * freq;
+	const double α = sin(ω0) * sinh(M_LN2 * bw * M_PI / sin(ω0));
+	const double norm = 1 / (1 + α);
+	f->a0 = norm;
+	f->a1 = norm * (-2.0 * cos(ω0));
+	f->a2 = norm;
+	f->b1 = f->a1;
+	f->b2 = norm * (1.0 - α);
+}
+
+void make_ap(struct filter *f, double freq, double bw)
+{
+	const double ω0 = 2 * M_PI * freq;
+	const double α = sin(ω0) * sinh(M_LN2 * bw * M_PI / sin(ω0));
+	const double norm = 1 / (1 + α);
+	f->a0 = norm * (1 - α);
+	f->a1 = norm * -2 * cos(ω0);
+	f->a2 = 1;
+	f->b1 = f->a1;
+	f->b2 = f->a0;
+}
+
+void make_peak(struct filter *f, double freq, double bw, double gain)
+{
+	const double A = pow(10.0, gain / 40);
+	const double ω0 = 2 * M_PI * freq;
+	//const double α = sin(ω0) / (2.0 * q);
+	const double α = sin(ω0) * sinh(M_LN2 * bw * M_PI / sin(ω0));
+	const double norm = 1 / (1 + α/A);
+
+	f->a0 = norm * (1 + α*A);
+	f->a1 = norm * -2.0 * cos(ω0);
+	f->a2 = norm * (1 - α*A);
+	f->b1 = f->a1;
+	f->b2 = norm * (1 - α/A);
 }
 
 static void run_filter(struct filter *f, float *buff, int size)

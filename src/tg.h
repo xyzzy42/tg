@@ -136,6 +136,34 @@ struct filter {
 	double a0,a1,a2,b1,b2;
 };
 
+/** Filter types. */
+enum bitype {
+	LOWPASS,
+	HIGHPASS,
+	BANDPASS,
+	NOTCH,
+	ALLPASS,
+	PEAK,
+	CUSTOM,
+	NUM_BITYPES
+};
+
+/** A biquadratic filter.
+ * 
+ * Saves the delay taps to allow the filter to continue across multiple calls. */
+struct biquad_filter {
+	struct filter f;	//!< Filter coefficients, F(z) = a(z) / b(z)
+	double        z1, z2;	//!< Delay taps
+	double	      bw;	//!< Bandwidth or Q
+	double        gain;	//!< Gain (only for peaking filter)
+	unsigned      frequency;//!< Cut-off or center frequency
+	enum bitype   type;	//!< Filter type
+	bool	      enabled;  //!< Enable filter
+};
+
+/** Opaque type for filter chain */
+struct filter_chain;
+
 void setup_buffers(struct processing_buffers *b);
 void pb_destroy(struct processing_buffers *b);
 struct processing_buffers *pb_clone(struct processing_buffers *p);
@@ -144,6 +172,11 @@ void setup_cal_data(struct calibration_data *cd);
 void cal_data_destroy(struct calibration_data *cd);
 int test_cal(struct processing_buffers *p);
 void make_hp(struct filter *f, double freq);
+void make_lp(struct filter *f, double freq);
+void make_bp(struct filter *f, double freq, double bw);
+void make_ap(struct filter *f, double freq, double bw);
+void make_notch(struct filter *f, double freq, double bw);
+void make_peak(struct filter *f, double freq, double bw, double gain);
 bool analyze_processing_data(struct processing_data *pd, int step, int bph, double la, uint64_t events_from);
 int analyze_processing_data_cal(struct processing_data *pd, struct calibration_data *cd);
 
@@ -171,6 +204,16 @@ void set_audio_hpf(int cutoff);
 const struct filter* get_audio_hpf(void);
 float* get_audio_data(uint64_t start_time, unsigned int len);
 float* get_last_audio_data(unsigned int len, uint64_t *timestamp);
+
+struct filter_chain *filter_chain_init(double sample_rate);
+struct biquad_filter *filter_chain_insert(struct filter_chain *chain, unsigned index);
+void filter_chain_remove(struct filter_chain *chain, unsigned index);
+const struct biquad_filter *filter_chain_get(const struct filter_chain *chain, unsigned index);
+unsigned int filter_chain_count(const struct filter_chain *chain);
+void filter_chain_move(struct filter_chain *chain, unsigned src, unsigned dst);
+bool filter_chain_enable(struct filter_chain *chain, unsigned index, bool enable);
+bool filter_chain_set(struct filter_chain *chain, unsigned index, enum bitype type, unsigned freq, double q, double gain);
+bool filter_chain_set_filter(struct filter_chain *chain, struct biquad_filter *filter, enum bitype type, unsigned freq, double q, double gain);
 
 /* computer.c */
 struct display;
