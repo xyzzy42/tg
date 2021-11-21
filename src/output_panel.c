@@ -647,6 +647,15 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	time += (int)(beat_length + 0.5) - 1;
 	time -= time % (int)(beat_length + 0.5);
 
+	// Flip about y axis in vertical mode
+	cairo_matrix_t graphmatrix, datamatrix;
+	cairo_get_matrix(c, &graphmatrix);	// matrix for graph text and lines
+	if(op->vertical_layout) {
+		const cairo_matrix_t hflip = { -1, 0, 0, 1, width, 0 };
+	        cairo_transform(c, &hflip);
+	}
+	cairo_get_matrix(c, &datamatrix);	// matrix for data
+
 	// Beat error slope lines or calibration slope lines
 	if (snst->pb) { // pb == NULL means no rate, beat error, etc.
 		// Slope of rate lines, in pixels per beat
@@ -675,6 +684,7 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	const int left_margin = (width - strip_width) / 2;
 	const int right_margin = (width + strip_width) / 2;
 
+	cairo_set_matrix(c, &graphmatrix);
 	cairo_set_line_width(c, 1);
 	cairo_set_source(c, green);
 	cairo_move_to(c, left_margin + .5, .5);
@@ -704,6 +714,8 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	// Ticks and tocks
 	cairo_set_line_width(c, 0);
 	cairo_set_source(c, stopped ? yellow : white);
+	cairo_set_matrix(c, &datamatrix);
+
 	/* Compute lag 1 difference between events, find residuals modulo beat
 	 * length (BL) of those differences, convert to range (-BL/2, BL/2], and
 	 * accumulate.
@@ -764,6 +776,7 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	cairo_stroke(c);
 
 	// Legend line
+	cairo_set_matrix(c, &graphmatrix);
 	cairo_set_source(c, white);
 	cairo_set_line_width(c, 2);
 	cairo_move_to(c, left_margin + 3, height - 20.5);
@@ -866,13 +879,13 @@ static void shift_trace(struct output_panel *op, double direction)
 static void handle_left(GtkButton *b, struct output_panel *op)
 {
 	UNUSED(b);
-	shift_trace(op,-1);
+	shift_trace(op,1);
 }
 
 static void handle_right(GtkButton *b, struct output_panel *op)
 {
 	UNUSED(b);
-	shift_trace(op,1);
+	shift_trace(op,-1);
 }
 
 static void handle_zoom_original(GtkScaleButton *b, struct output_panel *op)
@@ -972,7 +985,7 @@ static GtkWidget* create_paperstrip(struct output_panel *op, bool vertical)
 
 	// < button
 	op->left_button = gtk_button_new_from_icon_name(
-		vertical ? "pan-start-symbolic" : "pan-up-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
+		vertical ? "pan-start-symbolic" : "pan-down-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
 	gtk_box_pack_start(GTK_BOX(hbox), op->left_button, TRUE, TRUE, 0);
 	g_signal_connect (op->left_button, "clicked", G_CALLBACK(handle_left), op);
 
@@ -991,7 +1004,7 @@ static GtkWidget* create_paperstrip(struct output_panel *op, bool vertical)
 
 	// > button
 	op->right_button = gtk_button_new_from_icon_name(
-		vertical ? "pan-end-symbolic" : "pan-down-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
+		vertical ? "pan-end-symbolic" : "pan-up-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
 	gtk_box_pack_start(GTK_BOX(hbox), op->right_button, TRUE, TRUE, 0);
 	g_signal_connect (op->right_button, "clicked", G_CALLBACK(handle_right), op);
 
@@ -1056,10 +1069,10 @@ static void place_displays(struct output_panel *op, GtkWidget *paperstrip, GtkWi
 	/* Make paperstrip arrows buttons point correct way */
 	GtkWidget *left_arrow = gtk_button_get_image(GTK_BUTTON(op->left_button));
 	gtk_image_set_from_icon_name(GTK_IMAGE(left_arrow),
-		vertical ? "pan-start-symbolic" : "pan-up-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
+		vertical ? "pan-start-symbolic" : "pan-down-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
 	GtkWidget *right_arrow = gtk_button_get_image(GTK_BUTTON(op->right_button));
 	gtk_image_set_from_icon_name(GTK_IMAGE(right_arrow),
-		vertical ? "pan-end-symbolic" : "pan-down-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
+		vertical ? "pan-end-symbolic" : "pan-up-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
 	/* Orientation of zoom buttons in papestrip */
 	GtkWidget *button_box = gtk_widget_get_parent(op->zoom_button);
 	gtk_widget_set_valign(button_box, vertical ? GTK_ALIGN_END : GTK_ALIGN_START);
