@@ -951,6 +951,30 @@ static void set_orientation(GtkWidget *widget, bool vertical)
 	gtk_orientable_set_orientation(GTK_ORIENTABLE(widget), vert_to_orient(vertical));
 }
 
+static void paperstrip_size_allocate(GtkWidget* self, GtkAllocation* a, struct output_panel *op)
+{
+	guint width, height;
+	if(op->vertical_layout) {
+		width = a->width;
+		height = MAX(op->snst->event_age, a->height);
+	} else {
+		width = MAX(op->snst->event_age, a->width);
+		height = a->height;
+	}
+
+	guint oldwidth, oldheight;
+	gtk_layout_get_size(GTK_LAYOUT(self), &oldwidth, &oldheight);
+	if(width != oldwidth || height != oldheight)
+		gtk_layout_set_size(GTK_LAYOUT(self), width, height);
+}
+
+void refresh_paperstrip_size(struct output_panel *op)
+{
+	GtkAllocation a;
+	gtk_widget_get_allocation(op->paperstrip_drawing_area, &a);
+	paperstrip_size_allocate(op->paperstrip_drawing_area, &a, op);
+}
+
 /* Creates the paperstrip, with buttons.  Returns top level Widget that contains
  * them.  Vertical controls orientation of paper strip.  */
 static GtkWidget* create_paperstrip(struct output_panel *op, bool vertical)
@@ -963,6 +987,8 @@ static GtkWidget* create_paperstrip(struct output_panel *op, bool vertical)
 	// Paperstrip
 	op->paperstrip_drawing_area = gtk_layout_new(NULL, NULL);
 	gtk_widget_set_size_request(op->paperstrip_drawing_area, 150, 150);
+	gtk_layout_set_size(GTK_LAYOUT(op->paperstrip_drawing_area), 
+		vertical ? 150 : op->snst->event_age, vertical ? op->snst->event_age : 150);
 	op->paperstrip_scolled_window = gtk_scrolled_window_new(NULL, NULL);
 	gtk_container_add(GTK_CONTAINER(op->paperstrip_scolled_window), op->paperstrip_drawing_area);
 	gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window), 150);
@@ -974,6 +1000,7 @@ static GtkWidget* create_paperstrip(struct output_panel *op, bool vertical)
 	gtk_container_add(GTK_CONTAINER(overlay), op->paperstrip_scolled_window);
 	g_signal_connect (op->paperstrip_drawing_area, "draw", G_CALLBACK(paperstrip_draw_event), op);
 	gtk_widget_set_events(op->paperstrip_drawing_area, GDK_EXPOSURE_MASK);
+	g_signal_connect(op->paperstrip_drawing_area, "size-allocate", G_CALLBACK(paperstrip_size_allocate), op);
 
 	GtkWidget *box = gtk_box_new(vert_to_orient(!vertical), 0);
 	gtk_container_set_border_width(GTK_CONTAINER(box), 15);

@@ -196,6 +196,17 @@ void compute_results(struct snapshot *s)
 			s->amp = 0;
 	} else
 		s->guessed_bph = s->bph ? s->bph : DEFAULT_BPH;
+
+	/* Find time, in beats, from last event to "now" */
+	s->event_age = 0;
+	if(s->events_count) {
+		const uint64_t time = s->timestamp ? s->timestamp : get_timestamp(s->is_light);
+		const uint64_t event = s->events[(s->events_wp + 1) % s->events_count];
+		if(event) {
+			const double beat_length = s->calibrate ? s->nominal_sr : (s->sample_rate * 3600) / s->guessed_bph;
+			s->event_age = round((time - event) / beat_length);
+		}
+	}
 }
 
 static void *computing_thread(void *void_computer)

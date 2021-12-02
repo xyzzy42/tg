@@ -502,6 +502,15 @@ static int scan_snapshot(FILE *f, struct snapshot **s, char **name)
 #ifdef DEBUG
 	(*s)->pb->debug = NULL;
 #endif
+
+	/* Find event age */
+	if((*s)->events_count) {
+		const double beat_length = (*s)->sample_rate * 3600 / (*s)->guessed_bph;
+		const uint64_t last = (*s)->events[(*s)->events_wp];
+		const uint64_t first = (*s)->events[((*s)->events_wp + 1) % (*s)->events_count];
+		(*s)->event_age = (last - first) / beat_length;
+	}
+
 	return 0;
 
 error:

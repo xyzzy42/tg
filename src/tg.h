@@ -192,6 +192,7 @@ struct snapshot {
 	unsigned char *events_tictoc;	//< Tic or Toc for each event
 	int events_wp; // used in cal+timegrapher mode
 	uint64_t events_from; // used only in timegrapher mode
+	int event_age; // Age of oldest event, measured in beats!
 
 	int signal;
 
@@ -282,6 +283,7 @@ struct output_panel {
 void initialize_palette();
 struct output_panel *init_output_panel(struct computer *comp, struct snapshot *snst, int border, bool vertical_layout);
 void set_panel_layout(struct output_panel *op, bool vertical);
+void refresh_paperstrip_size(struct output_panel *op);
 void redraw_op(struct output_panel *op);
 void op_set_snapshot(struct output_panel *op, struct snapshot *snst);
 void op_set_border(struct output_panel *op, int i);
