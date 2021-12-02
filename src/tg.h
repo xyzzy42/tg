@@ -263,6 +263,7 @@ struct output_panel {
 	GtkWidget *toc_drawing_area;
 	GtkWidget *period_drawing_area;
 	GtkWidget *paperstrip_box;
+	GtkWidget *paperstrip_scolled_window;
 	GtkWidget *paperstrip_drawing_area;
 	GtkWidget *clear_button;
 	GtkWidget *left_button;
