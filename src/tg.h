@@ -338,6 +338,11 @@ extern int testing;
 
 void print_debug(char *format,...);
 void error(char *format,...);
+void recompute(struct main_window *w);
+
+/* audio_interface.c */
+void init_audio_dialog(struct main_window *w);
+void audio_setup(GtkMenuItem *m, struct main_window *w);
 
 /* config.c */
 #define CONFIG_FIELDS(OP) \
