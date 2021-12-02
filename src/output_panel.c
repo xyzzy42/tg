@@ -1044,9 +1044,13 @@ static void place_displays(struct output_panel *op, GtkWidget *paperstrip, GtkWi
 	gtk_paned_set_wide_handle(GTK_PANED(op->displays), TRUE);
 
 	gtk_paned_pack1(GTK_PANED(op->displays), paperstrip, vertical ? FALSE : TRUE, FALSE);
+	gtk_widget_set_margin_end(paperstrip, vertical ? 5 : 0);
+	gtk_widget_set_margin_bottom(paperstrip, vertical ? 0 : 5);
 
 	set_orientation(waveforms, vert_to_orient(vertical));
 	gtk_paned_pack2(GTK_PANED(op->displays), waveforms, TRUE, FALSE);
+	gtk_widget_set_margin_start(waveforms, vertical ? 5 : 0);
+	gtk_widget_set_margin_top(waveforms, vertical ? 0 : 5);
 
 	/* Make paperstrip arrows buttons point correct way */
 	GtkWidget *left_arrow = gtk_button_get_image(GTK_BUTTON(op->left_button));
