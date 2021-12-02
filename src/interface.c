@@ -926,6 +926,7 @@ guint refresh(struct main_window *w)
 	if(!g_object_get_data(G_OBJECT(panel), "op-pointer")) {
 		photogenic = !w->active_snapshot->calibrate && w->active_snapshot->pb;
 		gtk_widget_set_sensitive(w->save_item, photogenic);
+		refresh_paperstrip_size(w->active_panel);
 		gtk_widget_queue_draw(w->notebook);
 	}
 	gtk_widget_set_sensitive(w->snapshot_button, photogenic);
