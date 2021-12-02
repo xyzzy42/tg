@@ -592,9 +592,11 @@ static void box(cairo_t *c, double x, double y)
 static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct output_panel *op)
 {
 	int i;
+	char s[32];
 	const struct snapshot *snst = op->snst;
 	struct display *ssd = snst->d;
 	uint64_t time = snst->timestamp ? snst->timestamp : get_timestamp(snst->is_light);
+	cairo_text_extents_t extents;
 
 	bool stopped = false;
 	if( snst->events_count &&
@@ -657,8 +659,11 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	time -= time % (int)(beat_length + 0.5);
 
 	// Flip about y axis in vertical mode
-	cairo_matrix_t graphmatrix, datamatrix;
+	cairo_matrix_t graphmatrix, datamatrix, vertmatrix;
 	cairo_get_matrix(c, &graphmatrix);	// matrix for graph text and lines
+	cairo_rotate(c, -M_PI/2);
+	cairo_get_matrix(c, &vertmatrix);	// matrix for vertical text
+	cairo_set_matrix(c, &graphmatrix);
 	if(op->vertical_layout) {
 		const cairo_matrix_t hflip = { -1, 0, 0, 1, width, 0 };
 	        cairo_transform(c, &hflip);
@@ -704,6 +709,7 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 
 	// Time grid lines
 	cairo_set_line_width(c, 1);
+	cairo_text_extents(c, "0123456789:", &extents);  // for positioning labels
 	// Space between lines in samples = 10 sec
 	const double line_spacing = 10 * snst->sample_rate;
 	// The topmost line is this many samples from start
@@ -714,10 +720,27 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 		const double row = round(position / beat_length); // …in pixels
 		if (row > height)
 			break;
+		const bool minute = (i - minute_offset) % 6 == 0;
 		cairo_move_to(c, 0, row);
 		cairo_line_to(c, width, row);
-		cairo_set_source(c, (i - minute_offset) % 6 ? green : red);
+		cairo_set_source(c, minute ? red : green);
 		cairo_stroke(c);
+
+		if (minute) {
+			const int timemins = round((time - position) / snst->sample_rate / 60.0);
+			const char * const minus =  timemins < 0 ? "-" : "";
+			const int min = abs(timemins) % 60;
+			const int hour = abs(timemins) / 60;
+			if (hour)
+				snprintf(s, sizeof(s), "%s%d:%02d", minus, hour, min);
+			else
+				snprintf(s, sizeof(s), "%s:%02d", minus, min);
+			cairo_set_source(c, white);
+			cairo_move_to(c, left_margin/2 - extents.y_bearing/2, row - 2);
+			cairo_set_matrix(c, &vertmatrix);
+			cairo_show_text(c, s);
+			cairo_set_matrix(c, &graphmatrix);
+		}
 	}
 
 	// Ticks and tocks
@@ -807,10 +830,8 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	int font = width / 25;
 	cairo_set_font_size(c, font < 12 ? 12 : font > 24 ? 24 : font);
 
-	char s[32];
 	snprintf(s, sizeof(s), "%.1f ms", s2ms(snst, chart_width));
 
-	cairo_text_extents_t extents;
 	cairo_font_extents_t fextents;
 	cairo_text_extents(c, s, &extents);
 	cairo_font_extents(c, &fextents);
