@@ -638,6 +638,15 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	// Width in samples of one pixel
 	const double pixel_width = (double)chart_width / strip_width;
 
+	/* Scrollbar position */
+	GtkAdjustment* scroll = op->vertical_layout ? 
+		gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(op->paperstrip_drawing_area)) :
+		gtk_scrollable_get_hadjustment(GTK_SCROLLABLE(op->paperstrip_drawing_area));
+	const unsigned int pos = round(gtk_adjustment_get_value(scroll));
+	// If scrollbar is not at zero, subtract from time to start at older data
+	if (pos > 0) 
+		time -= beat_length * pos;
+
 	/* Round time to multiple of beat rate, to avoid "jumping" of a point
 	 * compared to others or grid lines while scrolling.  E.g., points at
 	 * 1.0 and 1.2, both are rounded to row 1.  Advance time by 0.4, points
@@ -754,6 +763,7 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 		const int idx = (snst->events_wp + i) % snst->events_count;
 		const uint64_t event = snst->events[idx];
 		if (!event) break;
+		if (event > time) continue;
 
 		// Row 0 is at "time", each row is one beat earlier than that.
 		const double row = round((time - event) / beat_length);
@@ -951,9 +961,17 @@ static GtkWidget* create_paperstrip(struct output_panel *op, bool vertical)
 	gtk_box_pack_start(GTK_BOX(vbox), overlay, TRUE, TRUE, 0);
 
 	// Paperstrip
-	op->paperstrip_drawing_area = gtk_drawing_area_new();
+	op->paperstrip_drawing_area = gtk_layout_new(NULL, NULL);
 	gtk_widget_set_size_request(op->paperstrip_drawing_area, 150, 150);
-	gtk_container_add(GTK_CONTAINER(overlay), op->paperstrip_drawing_area);
+	op->paperstrip_scolled_window = gtk_scrolled_window_new(NULL, NULL);
+	gtk_container_add(GTK_CONTAINER(op->paperstrip_scolled_window), op->paperstrip_drawing_area);
+	gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window), 150);
+	gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window), 150);
+	gtk_scrolled_window_set_overlay_scrolling(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window), FALSE);
+	gtk_range_set_inverted(
+		GTK_RANGE(gtk_scrolled_window_get_hscrollbar(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window))),
+		TRUE);
+	gtk_container_add(GTK_CONTAINER(overlay), op->paperstrip_scolled_window);
 	g_signal_connect (op->paperstrip_drawing_area, "draw", G_CALLBACK(paperstrip_draw_event), op);
 	gtk_widget_set_events(op->paperstrip_drawing_area, GDK_EXPOSURE_MASK);
 
@@ -1078,6 +1096,12 @@ static void place_displays(struct output_panel *op, GtkWidget *paperstrip, GtkWi
 	gtk_widget_set_valign(button_box, vertical ? GTK_ALIGN_END : GTK_ALIGN_START);
 	set_orientation(button_box, !vertical);
 	set_orientation(op->zoom_button, vertical);
+	/* Location of scroll bars in paperstrip */
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window),
+		vertical ? GTK_POLICY_NEVER : GTK_POLICY_ALWAYS, 
+		vertical ? GTK_POLICY_ALWAYS : GTK_POLICY_NEVER);
+	gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window), vertical);
+	gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window), !vertical);
 
 	gtk_box_pack_end(GTK_BOX(op->panel), op->displays, TRUE, TRUE, 0);
 	gtk_widget_show(op->displays);
