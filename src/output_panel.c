@@ -966,8 +966,9 @@ static GtkWidget* create_paperstrip(struct output_panel *op, bool vertical)
 	gtk_widget_set_no_show_all(op->zoom_orig_button, true);
 
 	// Buttons
-	GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+	GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, TRUE, 0);
+	gtk_style_context_add_class(gtk_widget_get_style_context(hbox), GTK_STYLE_CLASS_LINKED);
 
 	// < button
 	op->left_button = gtk_button_new_from_icon_name(
