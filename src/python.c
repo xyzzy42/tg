@@ -236,11 +236,51 @@ static PyObject* get_pulses(PyObject* self, PyObject* noargs)
 	return Py_BuildValue("dd", snst->pb->tic_pulse, snst->pb->toc_pulse);
 }
 
+// getfilter(index): (float, float, float), (float, float, float)
+// Return specific filter
+static PyObject* get_filter(PyObject* self, PyObject* arg)
+{
+	const struct main_window* w = get_w(self);
+	const long index = PyLong_AsLong(PyNumber_Long(arg));
+	if (index == -1 && PyErr_Occurred()) {
+		PyErr_Print();
+		return NULL;
+	}
+
+	const struct biquad_filter *f = filter_chain_get(w->filter_chain, index);
+	if (!f)
+		Py_RETURN_NONE;
+	// tg swaps a/b from scipy
+	return Py_BuildValue("(ddd)(ddd)", f->f.a0, f->f.a1, f->f.a2, 1.0, f->f.b1, f->f.b2);
+}
+
+// getfilterchain(): [((float, float, float),(float, float, float)), ...]
+// Return list of all enabled filters.
+static PyObject* get_filterchain(PyObject* self, PyObject* noargs)
+{
+	const struct main_window* w = get_w(self);
+	UNUSED(noargs);
+
+	const struct biquad_filter *f;
+	unsigned int i = 0;
+	PyObject* filters = PyList_New(0);
+
+	while ((f = filter_chain_get(w->filter_chain, i++))) {
+		if (!f->enabled)
+			continue;
+		PyList_Append(filters, Py_BuildValue("(ddd)(ddd)",
+			f->f.a0, f->f.a1, f->f.a2, 1.0, f->f.b1, f->f.b2)); // tg swaps a/b from scipy
+	}
+	return filters;
+}
+
 static PyMethodDef methods[] = {
 	{"fgcolor",	  get_fgcolor,	  METH_NOARGS, "Get GtkImage's normal state foreground color" },
 	{"getaudio",	  get_audio,	  METH_VARARGS,"Return nparray of audio data at a timestamp" },
 	{"getlastaudio",  get_lastaudio,  METH_O,      "Return most recent audio data and timestamp" },
 	{"getevents",	  get_events,	  METH_NOARGS, "Get nparray of current beat timestamps" },
+	{"getfilter",     get_filter     ,METH_O,      "Get biquad filter coefficients" },
+	{"getfilterchain",get_filterchain,METH_NOARGS, "Get chain of biquad filter coefficients" },
 	{"getfirstevent", get_first_event,METH_VARARGS,"Get most revent event as timestamp, phase tuple" },
 	{"getlastevents", get_last_events,METH_NOARGS, "Return last tic and toc times" },
 	{"getsr",	  get_samplerate, METH_NOARGS, "Get calibrated sample rate" },
@@ -391,7 +431,7 @@ static void unloadmodule(struct emptymod *module, size_t n) {
 #define UNLOADMODULE(module)	unloadmodule((struct emptymod*)&module, MODULE_COUNT(module))
 
 // List of python modules to load.
-MODULE(filter_graph, plotfilter, maketitle);
+MODULE(filter_graph, plotfilter, maketitle, plotfilterchain, plotfiltern);
 MODULE(spectrogram, plotspectrogram_beat, plotspectrogram_time);
 
 // Yuck, doesn't seem to be any way to pass something to this callback
@@ -525,6 +565,16 @@ void create_filter_plot(GtkImage* image, const struct filter* filter,
 		filter->a0, filter->a1, filter->a2, // tg's a/b are swapped from scipy
 		1.0, filter->b1, filter->b2,
 		Fs, title);
+}
+
+void create_filter_chain_plot(GtkImage* image)
+{
+	call_plot(image, filter_graph.plotfilterchain, "");
+}
+
+void create_filter_n_plot(GtkImage* image, unsigned n)
+{
+	call_plot(image, filter_graph.plotfiltern, "(I)", n);
 }
 
 void spectrogram_beat(struct main_window *w, int which)

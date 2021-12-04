@@ -436,6 +436,8 @@ static inline bool python_init(const struct main_window* w) { UNUSED(w); return 
 static inline void python_finish(void) { }
 #endif
 void create_filter_plot(GtkImage* image, const struct filter* filter, int f0, int Fs, double Q);
+void create_filter_chain_plot(GtkImage *image);
+void create_filter_n_plot(GtkImage *image, unsigned n);
 void spectrogram_beat(struct main_window *w, int which);
 void spectrogram_time(struct main_window *w, double time_sec);
 void image_set_minimum_size(GtkImage* widget, int width, int height);
