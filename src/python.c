@@ -175,6 +175,37 @@ static PyObject* get_last_events(PyObject* self, PyObject* noargs)
 		(unsigned long long)snst->pb->last_tic, (unsigned long long)snst->pb->last_toc);
 }
 
+// getfistevent(tictoc=None): (timestamp, boolean)
+// Return first (newest) event.  If tictoc is not None, return newest tic (True)
+// or toc (False) event.
+static PyObject* get_first_event(PyObject* self, PyObject* args)
+{
+	const struct main_window* w = get_w(self);
+	const struct snapshot* snst = w->active_snapshot;
+	if (snst->events_count == 0)
+		Py_RETURN_NONE;
+
+	unsigned event = -1;
+	if (PyTuple_Size(args) == 0) {
+		event = snst->events_wp;
+	} else {
+		unsigned char which = PyObject_IsTrue(PyTuple_GetItem(args, 0));
+
+		for (int i = 0 ; i < snst->events_count; i++) {
+			int j = (snst->events_wp + snst->events_count - i) % snst->events_count;
+			if (snst->events_tictoc[j] == which) {
+				event = j;
+				break;
+			}
+		}
+		if (event == (unsigned)-1)
+			Py_RETURN_NONE;
+	}
+
+	return Py_BuildValue("KO", (unsigned long long)snst->events[event],
+			     snst->events_tictoc[event] ? Py_True : Py_False);
+}
+
 // getbeataudio(timestamp) : (np.array(dtype=float32), int)
 // Return what tg considers the beat audio for the one beat at the supplied timestamp.
 // The 2nd item is the offset from the start that corresponds to timestamp.
@@ -210,6 +241,7 @@ static PyMethodDef methods[] = {
 	{"getaudio",	  get_audio,	  METH_VARARGS,"Return nparray of audio data at a timestamp" },
 	{"getlastaudio",  get_lastaudio,  METH_O,      "Return most recent audio data and timestamp" },
 	{"getevents",	  get_events,	  METH_NOARGS, "Get nparray of current beat timestamps" },
+	{"getfirstevent", get_first_event,METH_VARARGS,"Get most revent event as timestamp, phase tuple" },
 	{"getlastevents", get_last_events,METH_NOARGS, "Return last tic and toc times" },
 	{"getsr",	  get_samplerate, METH_NOARGS, "Get calibrated sample rate" },
 	{"getbeataudio",  get_beat_audio, METH_O,      "Get audio for a tick, supply timestamp" },
@@ -495,9 +527,9 @@ void create_filter_plot(GtkImage* image, const struct filter* filter,
 		Fs, title);
 }
 
-void spectrogram_beat(struct main_window *w)
+void spectrogram_beat(struct main_window *w, int which)
 {
-	call_plot(GTK_IMAGE(w->signal_graph), spectrogram.plotspectrogram_beat, "");
+	call_plot(GTK_IMAGE(w->signal_graph), spectrogram.plotspectrogram_beat, "(i)", which);
 }
 
 void spectrogram_time(struct main_window *w, double length)
