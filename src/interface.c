@@ -802,6 +802,7 @@ static void init_signal_dialog(struct main_window *w)
 	/* Output image */
 	GtkWidget *img = gtk_image_new();
 	gtk_box_pack_start(GTK_BOX(vbox), img, TRUE, TRUE, 0);
+	image_set_minimum_size(GTK_IMAGE(img), 800, 600);
 	gtk_widget_set_size_request(img, 800, -1);
 	w->signal_graph = img;
 #else

@@ -35,16 +35,18 @@ def maketitle(f0, fs, Q):
     return f'Gain and Group Delay: $f_0$ = {f0/1000:g} kHz, $F_s$ = {fs/1000:g} kHz, $Q = {Q}$'
 
 # Plot a IIR filter's gain and group delay
-def plotfilter(b, a, fs=48000, title='Gain and Group Delay'):
+def plotfilter(b, a, fs=48000, title='Gain and Group Delay', figsize=(800,600)):
     G = np.linspace(1, fs/2, 512, endpoint=False)
 
     z = signal.freqz(b, a, worN=G, fs=fs)[1]
     gd = signal.group_delay((b,a), G, fs=fs)[1]
     logz = 20*np.log10(np.abs(z))
 
+    dpi = mpl.rcParams['figure.dpi']
+    figsize = tuple(s / dpi for s in figsize)
     # facecolor = background color outside plot, use gtk background color?
     # frameon=False = outside plot is transparent.. blends with gtk background by itself!
-    fig, ax = plt.subplots(figsize=(8,6), frameon=False, constrained_layout=True)
+    fig, ax = plt.subplots(figsize=figsize, frameon=False, constrained_layout=True)
 
     ax.plot(G, logz)
     ymin, ymax = ax.get_ylim()

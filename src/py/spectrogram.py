@@ -32,7 +32,7 @@ mpl.rc('ytick', color=fgcolor)
 # canvas = mpl.backends.backend_agg.FigureCanvasAgg(fig)
 
 # Plot last event's spectrogram
-def plotspectrogram_beat():
+def plotspectrogram_beat(figsize=(800,600)):
     events = tg.getevents()
     if events is None or len(events) == 0: return
     Fs = tg.getsr()
@@ -61,7 +61,9 @@ def plotspectrogram_beat():
     # tfr_spec returns lots of zeros that mess up log10
     S[S==0] = S[S!=0].min()
 
-    fig = mpl.figure.Figure(figsize=(8,6), frameon=False, constrained_layout=True)
+    dpi = mpl.rcParams['figure.dpi']
+    figsize = tuple(s / dpi for s in figsize)
+    fig = mpl.figure.Figure(figsize=figsize, frameon=False, constrained_layout=True)
     canvas = mpl.backends.backend_agg.FigureCanvasAgg(fig)
     ax = fig.add_subplot()
     ax.minorticks_on()
@@ -81,7 +83,7 @@ def plotspectrogram_beat():
     return canvas.buffer_rgba()
 
 # Plot spectrogram of last X seconds
-def plotspectrogram_time(length):
+def plotspectrogram_time(length, figsize=(800,600)):
     Fs = tg.getsr()
     # Skip most recent audio to avoid mouse click sound
     skip = int(0.250 * Fs)
@@ -112,7 +114,9 @@ def plotspectrogram_time(length):
     # tfr_spec returns lots of zeros that mess up log10
     S[S==0] = S[S!=0].min()
 
-    fig = mpl.figure.Figure(figsize=(8,6), frameon=False, constrained_layout=True)
+    dpi = mpl.rcParams['figure.dpi']
+    figsize = tuple(s / dpi for s in figsize)
+    fig = mpl.figure.Figure(figsize=figsize, frameon=False, constrained_layout=True)
     canvas = mpl.backends.backend_agg.FigureCanvasAgg(fig)
     ax = fig.add_subplot()
     ax.minorticks_on()

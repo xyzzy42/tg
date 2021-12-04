@@ -448,27 +448,59 @@ static void image_set_from_memview(GtkImage* image, PyObject* memview)
 	}
 }
 
+void image_set_minimum_size(GtkImage* widget, int width, int height)
+{
+	unsigned int dims = (width & 0xffff) | (height & 0xffff) << 16;
+	g_object_set_data(G_OBJECT(widget), "min-size", GUINT_TO_POINTER(dims));
+}
+
+// Get size of image, as python tuple.  Either allocation or a minimum size.  Minimum
+// size is set via a custom datum on the image, since Gtk doesn't seem to have this
+// concept for GtkImages.
+static PyObject* image_size(GtkImage* image)
+{
+	// So lazy, packed into a pointer so I don't have to allocate a struct
+	unsigned int dims = GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(image), "min-size"));
+	int minwidth = (dims & 0xffff), minheight = (dims >> 16) & 0xffff;
+	int width = MAX(minwidth, gtk_widget_get_allocated_width(GTK_WIDGET(image))), 
+	    height = MAX(minheight, gtk_widget_get_allocated_height(GTK_WIDGET(image)));
+
+	return Py_BuildValue("ii", width, height);
+}
+
+static void call_plot(GtkImage* image, PyObject* callable, const char* format, ...)
+{
+	if (!python_initialized) return;
+
+	va_list valist;
+	va_start(valist, format);
+	PyObject* args = Py_VaBuildValue(format, valist);
+	va_end(valist);
+	PyObject* kwargs = Py_BuildValue("{s:N}", "figsize", image_size(image));
+	PyObject* memview = PyObject_Call(callable, args, kwargs);
+	Py_DECREF(args);
+	Py_DECREF(kwargs);
+	image_set_from_memview(image, memview);
+}
+
 void create_filter_plot(GtkImage* image, const struct filter* filter,
 			int f0, int Fs, double Q)
 {
 	if (!python_initialized) return;
 
 	PyObject *title = PyObject_CallFunction(filter_graph.maketitle, "iid", f0, Fs, Q);
-	PyObject *memview = PyObject_CallFunction(filter_graph.plotfilter, "(ddd)(ddd)iN",
+	call_plot(image, filter_graph.plotfilter, "(ddd)(ddd)iN",
 		filter->a0, filter->a1, filter->a2, // tg's a/b are swapped from scipy
 		1.0, filter->b1, filter->b2,
 		Fs, title);
-	image_set_from_memview(image, memview);
 }
 
 void spectrogram_beat(struct main_window *w)
 {
-	PyObject* ret = PyObject_CallNoArgs(spectrogram.plotspectrogram_beat);
-	image_set_from_memview(GTK_IMAGE(w->signal_graph), ret);
+	call_plot(GTK_IMAGE(w->signal_graph), spectrogram.plotspectrogram_beat, "");
 }
 
 void spectrogram_time(struct main_window *w, double length)
 {
-	PyObject* ret = PyObject_CallFunction(spectrogram.plotspectrogram_time, "d", length);
-	image_set_from_memview(GTK_IMAGE(w->signal_graph), ret);
+	call_plot(GTK_IMAGE(w->signal_graph), spectrogram.plotspectrogram_time, "(d)", length);
 }
