@@ -344,33 +344,43 @@ static bool check_audio_rate(int device, int rate)
 	return paFormatIsSupported == Pa_IsFormatSupported(&params, NULL, rate);
 }
 
+static void scan_audio_device(int i, bool dopulse)
+{
+	static const int rate_list[] = AUDIO_RATES;
+	const struct PaDeviceInfo* devinfo = Pa_GetDeviceInfo(i);
+
+	debug("Device %2d: %2d %s%s\n", i, devinfo->maxInputChannels, devinfo->name, i == Pa_GetDefaultInputDevice() ? " (default)" : "");
+	bool ispulse = !strcmp(devinfo->name, "pulse") || !strcmp(devinfo->name, "default") || !strcmp(devinfo->name, "sysdefault");
+	if (ispulse ^ dopulse)
+		return;
+	actx.devices[i].name = devinfo->name;
+	actx.devices[i].good = devinfo->maxInputChannels > 0;
+	actx.devices[i].isdefault = i == Pa_GetDefaultInputDevice();
+	actx.devices[i].rates = 0;
+	if (actx.devices[i].good) {
+		unsigned r;
+		for (r = 0; r < ARRAY_SIZE(rate_list); r++)
+			if (check_audio_rate(i, rate_list[r]))
+				actx.devices[i].rates |= 1 << r;
+	}
+}
 
 static int scan_audio_devices(void)
 {
-	const PaDeviceIndex default_input = Pa_GetDefaultInputDevice();
 	const int n = Pa_GetDeviceCount();
-	static const int rate_list[] = AUDIO_RATES;
 
 	if (actx.devices) free(actx.devices);
 	actx.devices = calloc(n, sizeof(*actx.devices));
 	if (!actx.devices)
 		return -ENOMEM;
 
+	// Two pass, non-pulse followed by pulse, as scanning a pulseaudio device will make the
+	// real device it's using appear busy if it's scanned shortly afterward.
 	int i;
-	for (i = 0; i < n; i++) {
-		const struct PaDeviceInfo* devinfo = Pa_GetDeviceInfo(i);
-		debug("Device %2d: %2d %s%s\n", i, devinfo->maxInputChannels, devinfo->name, i == default_input ? " (default)" : "");
-		actx.devices[i].name = devinfo->name;
-		actx.devices[i].good = devinfo->maxInputChannels > 0;
-		actx.devices[i].isdefault = i == default_input;
-		actx.devices[i].rates = 0;
-		if (actx.devices[i].good) {
-			unsigned r;
-			for (r = 0; r < ARRAY_SIZE(rate_list); r++)
-				if (check_audio_rate(i, rate_list[r]))
-					actx.devices[i].rates |= 1 << r;
-		}
-	}
+	for (i = 0; i < n; i++)
+		scan_audio_device(i, false);
+	for (i = 0; i < n; i++)
+		scan_audio_device(i, true);
 	actx.num_devices = n;
 
 	return n;
