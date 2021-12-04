@@ -1060,7 +1060,7 @@ static void start_interface(GApplication* app, void *p)
 	load_config(w);
 
 	w->nominal_sr = w->audio_rate;
-	if(start_portaudio(w->audio_device, &w->nominal_sr, &real_sr, w->hpf_freq, w->is_light)) {
+	if(start_portaudio(w->audio_device, &w->nominal_sr, &real_sr, w->filter_chain, w->is_light)) {
 		g_application_quit(app);
 		return;
 	}
