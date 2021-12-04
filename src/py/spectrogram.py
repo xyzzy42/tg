@@ -32,9 +32,11 @@ mpl.rc('ytick', color=fgcolor)
 # canvas = mpl.backends.backend_agg.FigureCanvasAgg(fig)
 
 # Plot last event's spectrogram
-def plotspectrogram_beat(figsize=(800,600)):
-    events = tg.getevents()
-    if events is None or len(events) == 0: return
+def plotspectrogram_beat(which=None, figsize=(800,600)):
+    event_phase = tg.getfirstevent(which)
+    if event_phase is None: return
+    event, phase = event_phase
+
     Fs = tg.getsr()
 
     # Average pulse lengths.  Don't think individual pulses are measured
@@ -48,7 +50,7 @@ def plotspectrogram_beat(figsize=(800,600)):
     flock = 0.01# frequency locking parameter
     tlock = 5	# time locking parameter
 
-    s, bo = tg.getbeataudio(events[-1])
+    s, bo = tg.getbeataudio(event)
     if s is None: return
 
     f = libtfr.fgrid(Fs, nfft)[0]
@@ -70,7 +72,7 @@ def plotspectrogram_beat(figsize=(800,600)):
     # Should I divide by Fs here or was that already done?
     mesh = ax.pcolormesh(t, f, 10*np.log10(S), shading='gouraud')
 
-    ax.set_title('Time and Frequency Reassigned Spectrogram')
+    ax.set_title('Time and Frequency Reassigned Spectrogram ' + ('(Tic)' if phase else '(Toc)'))
     ax.set_xlabel('Time (ms)')
     ax.set_ylabel('Frequency (Hz)')
     fig.colorbar(mesh)

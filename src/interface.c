@@ -751,10 +751,16 @@ static void signal_dialog_show(GtkMenuItem *m, struct main_window *w)
 }
 
 #if HAVE_SPECTROGRAM
-static void spectrogram_click(GtkButton *button, struct main_window *w)
+static void spectrogram_click_i(GtkButton *button, struct main_window *w)
 {
 	UNUSED(button);
-	spectrogram_beat(w);
+	spectrogram_beat(w, 1);
+}
+
+static void spectrogram_click_o(GtkButton *button, struct main_window *w)
+{
+	UNUSED(button);
+	spectrogram_beat(w, 0);
 }
 
 static void spectrogramt_click(GtkButton *button, struct main_window *w)
@@ -785,9 +791,15 @@ static void init_signal_dialog(struct main_window *w)
 
 	gtk_box_pack_start(GTK_BOX(sbox), gtk_label_new("Spectrograms"), FALSE, FALSE, 0);
 
-	GtkWidget *button = gtk_button_new_with_label("Last Beat");
-	g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(spectrogram_click), w);
+	GtkWidget *button = gtk_button_new_with_label("Last Tic");
+	g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(spectrogram_click_i), w);
 	gtk_box_pack_start(GTK_BOX(sbox), button, FALSE, FALSE, 0);
+
+	button = gtk_button_new_with_label("Last Toc");
+	g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(spectrogram_click_o), w);
+	gtk_box_pack_start(GTK_BOX(sbox), button, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(sbox), gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), FALSE , FALSE, 0);
 
 	button = gtk_button_new_with_label("Seconds");
 	g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(spectrogramt_click), w);
