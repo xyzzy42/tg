@@ -35,11 +35,10 @@ def maketitle(f0, fs, Q):
     return f'Gain and Group Delay: $f_0$ = {f0/1000:g} kHz, $F_s$ = {fs/1000:g} kHz, $Q = {Q}$'
 
 # Plot a IIR filter's gain and group delay
-def plotfilter(b, a, fs=48000, title='Gain and Group Delay', figsize=(800,600)):
-    G = np.linspace(1, fs/2, 512, endpoint=False)
+def plotfilter(b, a, fs=48000, title='Gain and Group Delay', figsize=(800,600), groupdelay=True):
+    G = np.linspace(2, fs/2, 512, endpoint=False)
 
     z = signal.freqz(b, a, worN=G, fs=fs)[1]
-    gd = signal.group_delay((b,a), G, fs=fs)[1]
     logz = 20*np.log10(np.abs(z))
 
     dpi = mpl.rcParams['figure.dpi']
@@ -50,16 +49,26 @@ def plotfilter(b, a, fs=48000, title='Gain and Group Delay', figsize=(800,600)):
 
     ax.plot(G, logz)
     ymin, ymax = ax.get_ylim()
-    ax.set_ylim(ymin = max(ymin, -80))
+    ax.set_ylim(ymin = np.clip(ymin, -80, -1), ymax = max(ymax, 1))
     ax.set_title(title)
     ax.minorticks_on()
     ax.set_xlabel("Frequency (Hz)")
-    ax.set_ylabel("Gain (dB)")
+    ax.set_ylabel("Gain (dB) (blue)")
+    ax.axhline(0, lw=0.5, ls='--', c='k')
 
-    ax2 = ax.twinx()
-    ax2.minorticks_on()
-    ax2.plot(G, gd * 1000000 / fs, 'r-')
-    ax2.set_ylabel("Delay (µs)")
+    if groupdelay:
+        gd = signal.group_delay((b,a), G[1:], fs=fs)[1]
+        ax2 = ax.twinx()
+        ax2.minorticks_on()
+        gd = gd * 1000000 / fs # samples to μs
+        # Attempt to crop off asymptotes
+        p = np.percentile(gd, [1, 99], interpolation='nearest')
+        p += np.array([-0.1, 0.1]) * p.ptp()
+        r = np.array([gd.min(), gd.max()]).clip(p[0], p[1])
+        r += np.array([-1, 1]) * ax2.margins() * r.ptp()
+        ax2.set_ylim(r)
+        ax2.plot(G[1:], gd, 'r-')
+        ax2.set_ylabel("Delay (µs) (red)")
 
     # Draw -3 dB stopband
     passdb = 10*np.log10(0.5)
@@ -73,3 +82,12 @@ def plotfilter(b, a, fs=48000, title='Gain and Group Delay', figsize=(800,600)):
     buffer = fig.canvas.buffer_rgba()
     plt.close(fig)
     return buffer
+
+def plotfiltern(n, **kwargs):
+    flt = tg.getfilter(n)
+    return plotfilter(flt[0], flt[1], fs=tg.getsr(), **kwargs)
+
+def plotfilterchain(**kwargs):
+    # Turn 2nd order filter chain to a single higher-order transfer function.
+    flt = signal.sos2tf(np.reshape(tg.getfilterchain(), (-1,6)))
+    return plotfilter(flt[0], flt[1], fs=tg.getsr(), **kwargs)
