@@ -82,18 +82,21 @@
 
 /* algo.c */
 struct processing_buffers {
-	int sample_rate;
-	int sample_count;
+	int sample_rate;	//< Nominal sampling rate in Hz
+	int sample_count;	//< Number of samples in this buffer
 	float *samples, *samples_sc, *waveform, *waveform_sc, *tic_wf, *slice_wf, *tic_c;
 	fftwf_complex *fft, *sc_fft, *tic_fft, *slice_fft;
 	fftwf_plan plan_a, plan_b, plan_c, plan_d, plan_e, plan_f, plan_g;
 	struct filter *lpf;
-	double period,sigma,be,waveform_max,phase,tic_pulse,toc_pulse,amp;
+	double period;		//< Estimated period (tic + toc) in samples
+	double sigma,be,waveform_max,phase,tic_pulse,toc_pulse,amp;
 	double cal_phase;
 	int waveform_max_i;
 	int tic,toc;
-	int ready;
-	uint64_t timestamp, last_tic, last_toc, events_from;
+	int ready;		//< Boolean flag indicating buffer is good data
+	uint64_t timestamp;	//< Absolute timestamp of end of buffer, timestamp - sample_count is time at start of buffer.
+	uint64_t last_tic, last_toc, events_from;
+	/** Dynamically allocated array of events, using absolute timestamps.  Terminated by 0 value for position. */
 	uint64_t *events;
 #ifdef DEBUG
 	int debug_size;
