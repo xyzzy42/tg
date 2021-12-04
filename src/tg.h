@@ -187,7 +187,7 @@ int analyze_processing_data_cal(struct processing_data *pd, struct calibration_d
 #define AUDIO_RATE_LABELS {"22.05 kHz", "44.1 kHz", "48 kHz", "96 kHz", "192 kHz" }
 #define NUM_AUDIO_RATES ARRAY_SIZE((int[])AUDIO_RATES)
 
-int start_portaudio(int device, int *nominal_sample_rate, double *real_sample_rate, int hpf_freq, bool light);
+int start_portaudio(int device, int *nominal_sample_rate, double *real_sample_rate, struct filter_chain *chain, bool light);
 int terminate_portaudio();
 uint64_t get_timestamp();
 void fill_buffers(struct processing_buffers *ps);
@@ -201,9 +201,8 @@ struct audio_device {
 };
 int get_audio_devices(const struct audio_device **devices);
 int get_audio_device(void);
-int set_audio_device(int device, int *nominal_sr, double *real_sr, int hpf_freq, bool light);
-void set_audio_hpf(int cutoff);
-const struct filter* get_audio_hpf(void);
+int set_audio_device(int device, int *nominal_sr, double *real_sr, struct filter_chain *chain, bool light);
+struct filter_chain* get_audio_filter_chain(void);
 float* get_audio_data(uint64_t start_time, unsigned int len);
 float* get_last_audio_data(unsigned int len, uint64_t *timestamp);
 
@@ -376,6 +375,7 @@ struct main_window {
 	int audio_device;// Selected device
 	int audio_rate;  // Selected rate
 	int hpf_freq;    // Low-pass filter cutoff frequency
+	struct filter_chain *filter_chain; // To be passed to audio startup
 
 	bool vertical_layout;
 

@@ -124,8 +124,11 @@ void audio_setup(GtkMenuItem *m, struct main_window *w)
 		new_rate = w->nominal_sr; /* clear entry too? */
 
 	int hpf_freq = gtk_range_get_value(w->hpf_range);
+	if (hpf_freq != 0)
+		filter_chain_set(w->filter_chain, 0, HIGHPASS, hpf_freq, M_SQRT1_2, 0);
+	filter_chain_enable(w->filter_chain, 0, !!hpf_freq);
 
-	i = set_audio_device(selected, &new_rate, NULL, hpf_freq, w->is_light);
+	i = set_audio_device(selected, &new_rate, NULL, NULL, w->is_light);
 	if (i == 0) {
 		w->nominal_sr = new_rate;
 		// Only save settings to config if it worked
@@ -137,7 +140,7 @@ void audio_setup(GtkMenuItem *m, struct main_window *w)
 	} else if (i < 0) {
 		/* Try to restore old settings */
 		new_rate = w->nominal_sr;
-		i = set_audio_device(current_dev, &new_rate, NULL, w->hpf_freq, w->is_light);
+		i = set_audio_device(current_dev, &new_rate, NULL, NULL, w->is_light);
 		if (i < 0)
 			error("Unable to restore previous audio settings.  Audio not working.");
 	}

@@ -43,7 +43,7 @@ struct filter_chain {
 struct callback_info {
 	int 	channels;	//!< Number of channels
 	bool	light;		//!< Light algorithm in use, copy half data
-	struct biquad_filter hpf; //!< High-pass filter run in callback
+	struct filter_chain *chain; //!< Audio filter chain, e.g. hpf
 };
 
 /** Static object for audio device state.
@@ -71,35 +71,6 @@ static struct audio_context {
 static inline double effective_sr(void)
 {
 	return actx.real_sample_rate / (actx.info.light ? 2 : 1);
-}
-
-/* Initialize audio filter */
-static void init_audio_hpf(struct biquad_filter *filter, int cutoff, double sample_rate)
-{
-	make_hp(&filter->f, cutoff/sample_rate);
-	filter->z1 = 0.0;
-	filter->z2 = 0.0;
-	filter->frequency = cutoff;
-	filter->bw = M_SQRT1_2;
-	filter->type = HIGHPASS;
-}
-
-/** Set High pass filter cutoff frequency.
- *
- * Setting value to zero turns it off.  Has no effect if frequency is not
- * changed.
- */
-void set_audio_hpf(int cutoff)
-{
-	if (actx.info.hpf.frequency != cutoff) {
-		make_hp(&actx.info.hpf.f, (double)cutoff / effective_sr());
-		actx.info.hpf.frequency = cutoff;
-	}
-}
-
-const struct filter* get_audio_hpf(void)
-{
-	return &actx.info.hpf.f;
 }
 
 /* Apply a biquadratic filter to data.  The delay values are updated in f, so
@@ -384,16 +355,7 @@ static int paudio_callback(const void *input_buffer,
 		wp = (wp + frame_count) % pa_buffer_size;
 	}
 
-	/* Apply HPF to new data */
-	if(info->hpf.frequency) {
-		struct biquad_filter *f = (struct biquad_filter *)&info->hpf;
-		if(write_pointer < wp) {
-			apply_biquad(f, pa_buffers + write_pointer, wp - write_pointer);
-		} else {
-			apply_biquad(f, pa_buffers + write_pointer, pa_buffer_size - write_pointer);
-			apply_biquad(f, pa_buffers, wp);
-		}
-	}
+	filter_chain_apply(info->chain, pa_buffers, write_pointer, wp, pa_buffer_size);
 
 	pthread_mutex_lock(&audio_mutex);
 	write_pointer = wp;
@@ -446,12 +408,13 @@ static PaError open_stream(PaDeviceIndex index, unsigned int rate, bool light, P
  * @param device Device number, index of device from get_audio_devices() list
  * @param[in,out] normal_sr Desired rate, or zero for default.  Rate used on return.
  * @param[out] real_sr Actual exact rate received, might be different than nominal_sr.
- * @param hpf_freq The cutoff frequency of the high pass filter.  0 disables.
+ * @param chain The filter chain for the audio.  NULL continues to use the existing chain or creates an empty one.
+ * When changing devices after the first open, only NULL is supported.
  * @param light Use light mode (halve normal_sr)
  * @returns zero or one on success or negative error code.  1 indicates no
  * change in device or rate was needed.
  */
-int set_audio_device(int device, int *nominal_sr, double *real_sr, int hpf_freq, bool light)
+int set_audio_device(int device, int *nominal_sr, double *real_sr, struct filter_chain *chain, bool light)
 {
 	PaError err;
 
@@ -459,8 +422,13 @@ int set_audio_device(int device, int *nominal_sr, double *real_sr, int hpf_freq,
 	if(*nominal_sr == 0)
 		*nominal_sr = PA_SAMPLE_RATE;
 
+	if (actx.info.chain && chain) {
+		// Don't need to support this
+		printf("Don't support changing filter chain after audio already running\n");
+		return -EBUSY;
+	}
+
 	if(actx.device == device && actx.sample_rate == *nominal_sr) {
-		set_audio_hpf(hpf_freq);
 		if(real_sr) *real_sr = actx.real_sample_rate;
 		return 1; // Already using this device at this rate
 	}
@@ -490,7 +458,13 @@ int set_audio_device(int device, int *nominal_sr, double *real_sr, int hpf_freq,
 		goto error;
 	actx.real_sample_rate = Pa_GetStreamInfo(actx.stream)->sampleRate;
 
-	init_audio_hpf(&actx.info.hpf, hpf_freq, effective_sr());
+	// This assumes changing an existing chain isn't supported
+	if (actx.info.chain == NULL) {
+		// Install empty chain if none given
+		actx.info.chain = chain ? chain : filter_chain_init(effective_sr());
+	}
+	// Keep using existing chain, adjust for sample rate change if needed
+	filter_chain_rate(actx.info.chain, effective_sr());
 
 	/* Allocate larger buffer if needed */
 	const size_t buffer_size = actx.sample_rate << (NSTEPS + FIRST_STEP);
@@ -624,12 +598,12 @@ static int scan_audio_devices(void)
  * @param[in,out] normal_sample_rate The rate in Hz to use, or 0 for default.  Returns
  * actual rate selected.
  * @param[out] real_sample_rate The exact rate used.
- * @param hpf_freq The cutoff frequency of the high pass filter.  0 disables.
+ * @param chain Filter chain to use.  NULL will create an empty chain.
  * @param light Use light mode (decimate to half supplied rate).
  * @returns 0 on success, 1 on error.
  *
  */
-int start_portaudio(int device, int *nominal_sample_rate, double *real_sample_rate, int hpf_freq, bool light)
+int start_portaudio(int device, int *nominal_sample_rate, double *real_sample_rate, struct filter_chain *chain, bool light)
 {
 	if(pthread_mutex_init(&audio_mutex,NULL)) {
 		error("Failed to setup audio mutex");
@@ -666,7 +640,7 @@ int start_portaudio(int device, int *nominal_sample_rate, double *real_sample_ra
 	} else
 		input = device;
 
-	err = set_audio_device(input, nominal_sample_rate, real_sample_rate, hpf_freq, light);
+	err = set_audio_device(input, nominal_sample_rate, real_sample_rate, chain, light);
 	if(err!=paNoError && err!=1)
 		goto error;
 
@@ -742,13 +716,22 @@ void set_audio_light(bool light)
 
 		pthread_mutex_unlock(&audio_mutex);
 
-		init_audio_hpf(&actx.info.hpf, FILTER_CUTOFF, effective_sr());
+		filter_chain_rate(actx.info.chain, effective_sr());
 		PaError err = Pa_StartStream(actx.stream);
 		if(err != paNoError)
 			error("Error re-starting audio input: %s", Pa_GetErrorText(err));
 	}
 }
 
+/** Return audio filter chain.
+ *
+ * This could be the one passed in when starting audio or new one
+ * created if there wasn't one to start with.
+ */
+struct filter_chain* get_audio_filter_chain(void)
+{
+	return actx.info.chain;
+}
 
 static float* _get_audio_data(uint64_t *start_time, unsigned int len)
 {

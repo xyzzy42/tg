@@ -1057,10 +1057,11 @@ static void start_interface(GApplication* app, void *p)
 	load_config(w);
 
 	w->nominal_sr = w->audio_rate;
-	if(start_portaudio(w->audio_device, &w->nominal_sr, &real_sr, w->hpf_freq, w->is_light)) {
+	if(start_portaudio(w->audio_device, &w->nominal_sr, &real_sr, w->filter_chain, w->is_light)) {
 		g_application_quit(app);
 		return;
 	}
+	w->filter_chain = get_audio_filter_chain();
 
 	if(w->la < MIN_LA || w->la > MAX_LA) w->la = DEFAULT_LA;
 	if(w->bph < MIN_BPH || w->bph > MAX_BPH) w->bph = 0;
