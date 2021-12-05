@@ -801,9 +801,11 @@ static void init_signal_dialog(struct main_window *w)
 #ifdef HAVE_PYTHON
 	/* Output image */
 	GtkWidget *img = gtk_image_new();
-	gtk_box_pack_start(GTK_BOX(vbox), img, TRUE, TRUE, 0);
+	gtk_box_pack_end(GTK_BOX(vbox), img, TRUE, TRUE, 0);
 	image_set_minimum_size(GTK_IMAGE(img), 800, 600);
 	gtk_widget_set_size_request(img, 800, -1);
+	gtk_widget_set_vexpand(img, TRUE);
+	gtk_widget_set_hexpand(img, TRUE);
 	w->signal_graph = img;
 #else
 	gtk_box_pack_start(GTK_BOX(vbox), gtk_label_new(
