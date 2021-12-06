@@ -359,6 +359,8 @@ struct main_window {
 	GtkWidget *signal_graph;
 	GtkWidget *spectime_spin;
 
+	GtkWidget *filter_chain_dialog;
+
 	struct output_panel *active_panel;
 
 	struct computer *computer;
@@ -441,3 +443,9 @@ void create_filter_n_plot(GtkImage *image, unsigned n);
 void spectrogram_beat(struct main_window *w, int which);
 void spectrogram_time(struct main_window *w, double time_sec);
 void image_set_minimum_size(GtkImage* widget, int width, int height);
+
+/* filter_interface.c */
+GtkWidget* spin_slider_new(const char* label, gdouble min, gdouble max, gdouble step);
+typedef struct _FilterDialog FilterDialog;
+GtkWidget* filter_dialog_new(struct main_window *w);
+void filter_dialog_set_chain(FilterDialog* filter_dialog, struct filter_chain* chain);
