@@ -234,3 +234,46 @@ void python_finish(void)
 {
 	Py_FinalizeEx();
 }
+
+// A gdk pixmap deleter function that will delete a PyObject
+static void del_pyobject(guchar *pixels, gpointer data)
+{
+	UNUSED(pixels);
+	Py_XDECREF((PyObject*)data);
+}
+
+// Return a pixbuf created from the image in the memview object.
+// The pixbuf steals the reference to the memview!
+// Needs to be 8-bit RGBA and the memview needs to describe the image dimensions.  The
+// pixbuf will deref the memview when it's freed.
+static GdkPixbuf* create_pixbuf_from_memview(PyObject* memview)
+{
+	if (!PyMemoryView_Check(memview))
+		return NULL; // Create exception?
+	Py_buffer *mem = PyMemoryView_GET_BUFFER(memview);
+	if (mem->ndim != 3 || mem->shape[2] != 4)
+		return NULL;
+	return gdk_pixbuf_new_from_data(mem->buf,
+		GDK_COLORSPACE_RGB,
+		true,
+		8,
+		mem->shape[1],
+		mem->shape[0],
+		mem->strides[0],
+		del_pyobject, memview);
+}
+
+// Set a GtkImage to an image stored in a Python memview.  This steals the reference to the
+// memview and gives it to the GtkImage.  Prints error on a NULL memview.
+static void image_set_from_memview(GtkImage* image, PyObject* memview)
+{
+	if (!memview) {
+		PyErr_Print();
+		return;
+	}
+	GdkPixbuf* pixbuf = create_pixbuf_from_memview(memview);
+	if (pixbuf) {
+		gtk_image_set_from_pixbuf(image, pixbuf);
+		g_object_unref(pixbuf);
+	}
+}
