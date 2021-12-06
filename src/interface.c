@@ -750,6 +750,13 @@ static void signal_dialog_show(GtkMenuItem *m, struct main_window *w)
 	gtk_widget_show_all(w->signal_dialog);
 }
 
+static void filter_chain_dialog_show(GtkMenuItem *m, struct main_window *w)
+{
+	UNUSED(m);
+	python_init(w);
+	gtk_widget_show_all(w->filter_chain_dialog);
+}
+
 #if HAVE_SPECTROGRAM
 static void spectrogram_click_i(GtkButton *button, struct main_window *w)
 {
@@ -954,6 +961,9 @@ static void init_main_window(struct main_window *w)
 	gtk_menu_shell_append(GTK_MENU_SHELL(command_menu), gtk_separator_menu_item_new());
 
 	add_menu_item(command_menu, "Signal", true, G_CALLBACK(signal_dialog_show), w);
+
+	add_menu_item(command_menu, "Filter Chain", true, G_CALLBACK(filter_chain_dialog_show), w);
+	w->filter_chain_dialog = filter_dialog_new(w);
 
 	// ... Audio Setup
 	w->audio_setup = add_menu_item(command_menu, "Audio setup", true, G_CALLBACK(audio_setup), w);

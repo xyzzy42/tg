@@ -13,6 +13,7 @@ tg_timer_SOURCES = src/algo.c \
 		   src/audio_interface.c \
 		   src/output_panel.c \
 		   src/serializer.c \
+		   src/filter_interface.c \
 		   src/tg.h 
 
 if PYTHON
