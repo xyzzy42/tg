@@ -47,6 +47,93 @@ g_key_file_save_to_file (GKeyFile     *key_file,
 #define g_key_file_get_bool g_key_file_get_boolean
 #define g_key_file_set_bool g_key_file_set_boolean
 
+static void save_filter_chain(struct main_window *w)
+{
+	debug("Config: save filter chain\n");
+	const unsigned int n = filter_chain_count(w->filter_chain);
+	const struct biquad_filter *f = filter_chain_get(w->filter_chain, 0);
+
+	if (!f || (f->type == HIGHPASS && n == 1)) {
+		debug("Config: no chain, just save hpf frequency\n");
+		/* Chain is a single HPF or empty, no chain needed */
+		w->hpf_freq = f && f->enabled ? f->frequency : 0;
+		g_key_file_remove_group(w->config_file, "filter_chain", NULL);
+		return;
+	}
+
+	// g key files only support lists of a single type
+	gint types[n], freqs[n];
+	gdouble qs[n];
+	gdouble gains[n];
+	gboolean enabled[n];
+	unsigned i;
+	for (i = 0; i < n; i++) {
+		f = filter_chain_get(w->filter_chain, i);
+		types[i] = f->type;
+		freqs[i] = f->frequency;
+		qs[i] = f->bw;
+		gains[i] = f->gain;
+		enabled[i] = f->enabled;
+	}
+	debug("Config: saving chain with %u filters\n", n);
+	g_key_file_set_integer_list(w->config_file, "filter_chain", "type", types, n);
+	g_key_file_set_integer_list(w->config_file, "filter_chain", "frequency", freqs, n);
+	g_key_file_set_double_list(w->config_file, "filter_chain", "q", qs, n);
+	g_key_file_set_double_list(w->config_file, "filter_chain", "gain", gains, n);
+	g_key_file_set_boolean_list(w->config_file, "filter_chain", "enabled", enabled, n);
+}
+
+static void load_filter_chain(struct main_window *w)
+{
+	struct filter_chain *chain = filter_chain_init(w->audio_rate ? (double)w->audio_rate : PA_SAMPLE_RATE);
+
+	if (g_key_file_has_group(w->config_file, "filter_chain")) {
+		gsize n, nn;
+		g_autoptr(GError) e = NULL;
+		g_autofree gint *types = NULL;
+		g_autofree gint *freqs = NULL;
+		g_autofree gdouble *qs = NULL;
+		g_autofree gdouble *gains = NULL;
+		g_autofree gboolean *enabled = NULL;
+
+		types = g_key_file_get_integer_list(w->config_file, "filter_chain", "type", &n, &e);
+		if (e) goto fail;
+		freqs = g_key_file_get_integer_list(w->config_file, "filter_chain", "frequency", &nn, &e);
+		if (e || n != nn) goto fail;
+		qs = g_key_file_get_double_list(w->config_file, "filter_chain", "q", &nn, &e);
+		if (e || n != nn) goto fail;
+		gains = g_key_file_get_double_list(w->config_file, "filter_chain", "gain", &nn, &e);
+		if (e || n != nn) goto fail;
+		enabled = g_key_file_get_boolean_list(w->config_file, "filter_chain", "enabled", &nn, &e);
+		if (e || n != nn) goto fail;
+
+		debug("Config: Initial chain has %d filters\n", (int)n);
+		unsigned i;
+		for (i = 0; i < n; i++) {
+			filter_chain_insert(chain, i);
+			filter_chain_set(chain, i, types[i], freqs[i], qs[i], gains[i]);
+		}
+		for (i = 0; i < n; i++)
+			filter_chain_enable(chain, i, enabled[i]);
+
+		w->filter_chain = chain;
+		return;
+
+	fail:
+		printf("Config: Error in filter chain configuration: %s\n",
+		       e ? e->message : "Inconsistent number of filters");
+		// Fall through to the "no filter_chain group" path and use a single HPF
+	}
+
+	// Just use highpass_cutoff_freq
+	debug("Config: Use single HPF at %d\n", w->hpf_freq);
+	filter_chain_insert(chain, 0);
+	filter_chain_set(chain, 0, HIGHPASS, w->hpf_freq ? w->hpf_freq : FILTER_CUTOFF, M_SQRT1_2, 0);
+	filter_chain_enable(chain, 0, w->hpf_freq != 0);
+	w->filter_chain = chain;
+	return;
+}
+
 void load_config(struct main_window *w)
 {
 	w->config_file = g_key_file_new();
@@ -77,6 +164,7 @@ void load_config(struct main_window *w)
 	}
 
 	CONFIG_FIELDS(LOAD);
+	load_filter_chain(w);
 }
 
 void save_config(struct main_window *w)
@@ -89,6 +177,7 @@ void save_config(struct main_window *w)
 	g_key_file_set_ ## TYPE (w->config_file, "tg", #NAME, w -> PLACE); \
 	w -> conf_data -> PLACE = w -> PLACE;
 
+	save_filter_chain(w);
 	CONFIG_FIELDS(SAVE);
 
 #ifdef DEBUG
