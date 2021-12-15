@@ -201,14 +201,13 @@ void init_audio_dialog(struct main_window *w)
 	gtk_grid_attach(grid, label = gtk_label_new("High Pass Cutoff"), 0, 2, 1, 1);
 	g_object_set(G_OBJECT(label), "halign", GTK_ALIGN_END, NULL);
 
-	GtkWidget *hpf = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 24000, 100);
-	w->hpf_range = GTK_RANGE(hpf);
+	w->hpf_range = GTK_RANGE(gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, 24000, 100));
 	gtk_scale_add_mark(GTK_SCALE(w->hpf_range), 0, GTK_POS_BOTTOM, "Off");
 	gtk_scale_add_mark(GTK_SCALE(w->hpf_range), FILTER_CUTOFF, GTK_POS_BOTTOM, "Default");
 	gtk_range_set_restrict_to_fill_level(w->hpf_range, true);
 	gtk_range_set_show_fill_level(w->hpf_range, true);
 	gtk_range_set_value(w->hpf_range, FILTER_CUTOFF);
-	gtk_grid_attach(grid, hpf, 1, 2, 1, 1);
+	gtk_grid_attach(grid, GTK_WIDGET(w->hpf_range), 1, 2, 1, 1);
 
 	gtk_widget_show_all(content);
 
