@@ -71,6 +71,36 @@ static void populate_rate_list(GtkComboBox *rate_list, unsigned int current_rate
 	}
 }
 
+// Current HPF frequency, 0 = disabled, -1 = filter chain is more complex than
+// HPF.
+static int current_hpf(const struct filter_chain *chain)
+{
+	const struct biquad_filter *filter = filter_chain_get(chain, 0);
+	if (filter && filter->type == HIGHPASS)
+		return filter->enabled ? filter->frequency : 0;
+	return -1;
+}
+
+// Adjust HPF slider to be current each time dialog is shown
+static void dialog_shown(GtkWidget *dialog, struct main_window *w)
+{
+	UNUSED(dialog);
+	int hpf = current_hpf(w->filter_chain);
+
+	// Update the HPF slider based on current settings
+	if (hpf < 0) {
+		gtk_widget_set_sensitive(GTK_WIDGET(w->hpf_range), FALSE);
+		gtk_widget_set_tooltip_text(GTK_WIDGET(w->hpf_range),
+			"Audio filter chain lacks an initial high pass filter.\n"
+			"Adjust audio filters via the Filter Chain dialog.");
+	} else {
+		gtk_widget_set_sensitive(GTK_WIDGET(w->hpf_range), TRUE);
+		gtk_range_set_fill_level(w->hpf_range, get_rate(w->rate_list) / 2);
+		gtk_range_set_value(w->hpf_range, hpf);
+		gtk_widget_set_tooltip_text(GTK_WIDGET(w->hpf_range), "");
+	}
+}
+
 static void device_changed(GtkWidget *device_list, struct main_window *w)
 {
 	UNUSED(device_list);
@@ -123,17 +153,18 @@ void audio_setup(GtkMenuItem *m, struct main_window *w)
 	if (new_rate == -1)
 		new_rate = w->nominal_sr; /* clear entry too? */
 
-	int hpf_freq = gtk_range_get_value(w->hpf_range);
-	if (hpf_freq != 0)
-		filter_chain_set(w->filter_chain, 0, HIGHPASS, hpf_freq, M_SQRT1_2, 0);
-	filter_chain_enable(w->filter_chain, 0, !!hpf_freq);
+	if (current_hpf(w->filter_chain) != -1 && gtk_widget_is_sensitive(GTK_WIDGET(w->hpf_range))) {
+		w->hpf_freq = gtk_range_get_value(w->hpf_range);
+		if ((w->hpf_freq != 0 && filter_chain_set(w->filter_chain, 0, HIGHPASS, w->hpf_freq, M_SQRT1_2, 0)) +
+		    filter_chain_enable(w->filter_chain, 0, !!w->hpf_freq))
+			g_signal_emit_by_name(G_OBJECT(w->filter_chain_dialog), "filter-changed", 0);
+	}
 
 	i = set_audio_device(selected, &new_rate, NULL, NULL, w->is_light);
 	if (i == 0) {
 		w->nominal_sr = new_rate;
 		// Only save settings to config if it worked
 		w->audio_rate = new_rate;
-		w->hpf_freq = hpf_freq;
 		// If selected dev is the default, save -1 "default" to config
 		w->audio_device = devices[selected].isdefault ? -1 : selected;
 		recompute(w);
@@ -217,4 +248,6 @@ void init_audio_dialog(struct main_window *w)
 	g_signal_connect(G_OBJECT(w->device_list), "changed", G_CALLBACK(device_changed), w);
 	g_signal_connect(G_OBJECT(gtk_bin_get_child(GTK_BIN(w->rate_list))), "activate", G_CALLBACK(rate_entered), w);
 	g_signal_connect(G_OBJECT(w->rate_list), "changed", G_CALLBACK(rate_changed), w);
+
+	g_signal_connect(G_OBJECT(w->audio_setup), "show", G_CALLBACK(dialog_shown), w);
 }
