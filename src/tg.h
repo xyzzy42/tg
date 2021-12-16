@@ -209,6 +209,9 @@ const struct filter* get_audio_hpf(void);
 float* get_audio_data(uint64_t start_time, unsigned int len);
 float* get_last_audio_data(unsigned int len, uint64_t *timestamp);
 
+float get_audio_peak(void);
+void set_audio_tppm(bool enable);
+
 struct filter_chain *filter_chain_init(double sample_rate);
 struct biquad_filter *filter_chain_insert(struct filter_chain *chain, unsigned index);
 void filter_chain_remove(struct filter_chain *chain, unsigned index);

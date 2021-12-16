@@ -44,6 +44,8 @@ struct callback_info {
 	int 	channels;	//!< Number of channels
 	bool	light;		//!< Light algorithm in use, copy half data
 	struct filter_chain *chain; //!< Audio filter chain, e.g. hpf
+	bool	do_tppm;	//!< Enable true peak meter
+	struct tppm *tppm;	//!< True peak level measurement
 };
 
 /** Static object for audio device state.
@@ -319,6 +321,8 @@ static int paudio_callback(const void *input_buffer,
 	const struct callback_info *info = data;
 	unsigned wp = write_pointer;
 
+	const unsigned len = MIN(frame_count, pa_buffer_size - wp);
+
 	if (info->light) {
 		static bool even = true;
 		/* Copy every other sample.  It would be much more efficient to
@@ -340,7 +344,6 @@ static int paudio_callback(const void *input_buffer,
 		 * we know if we should drop the 1st or 2nd frame next callback. */
 		if(frame_count % 2) even = !even;
 	} else {
-		const unsigned len = MIN(frame_count, pa_buffer_size - wp);
 		if(info->channels == 1) {
 			memcpy(pa_buffers + wp, input_samples, len * sizeof(*pa_buffers));
 			if(len < frame_count)
@@ -355,8 +358,14 @@ static int paudio_callback(const void *input_buffer,
 		wp = (wp + frame_count) % pa_buffer_size;
 	}
 
-	filter_chain_apply(info->chain, pa_buffers, write_pointer, wp, pa_buffer_size);
+	// Before filtering audio, do true peak calculations
+	if (info->do_tppm) {
+		tppm_process(info->tppm, pa_buffers + write_pointer, len);
+		if (len < frame_count)
+			tppm_process(info->tppm, pa_buffers, frame_count - len);
+	}
 
+	filter_chain_apply(info->chain, pa_buffers, write_pointer, wp, pa_buffer_size);
 	pthread_mutex_lock(&audio_mutex);
 	write_pointer = wp;
 	timestamp += frame_count;
@@ -465,6 +474,13 @@ int set_audio_device(int device, int *nominal_sr, double *real_sr, struct filter
 	}
 	// Keep using existing chain, adjust for sample rate change if needed
 	filter_chain_rate(actx.info.chain, effective_sr());
+
+	// Re-allocate tppm, in case sample rate changed.
+	if (actx.info.tppm != NULL) {
+		tppm_free(actx.info.tppm);
+		actx.info.tppm = NULL;
+		set_audio_tppm(actx.info.do_tppm);
+	}
 
 	/* Allocate larger buffer if needed */
 	const size_t buffer_size = actx.sample_rate << (NSTEPS + FIRST_STEP);
@@ -769,4 +785,34 @@ float* get_last_audio_data(unsigned int len, uint64_t* timestamp)
 {
 	*timestamp = (uint64_t)-1;
 	return _get_audio_data(timestamp, len);
+}
+
+/** Return the true peak audio level.
+ *
+ * Returns the float value 0-1 scale.  Except it can over 1, not entirely sure why that happens. 
+ * Returns 0 if the peak meter isn't enabled.
+ */
+float get_audio_peak(void)
+{
+	// Assumes we can read the peak atomically with it getting set
+	return actx.info.do_tppm ? actx.info.tppm->peak : 0;
+}
+
+/** Enable or disable the true peak programme meter.
+ *
+ * This allocates the buffer when enabled for the first time, but doesn't deallocate when
+ * disabling, to avoid races.  Setting it the existing value doesn't do anything.
+ */
+void set_audio_tppm(bool enable)
+{
+	/* It's ok to assume callback won't be using tppm struct if it has not get been
+	 * allocated, so it's ok to set it here without a race.  */
+	if (enable && !actx.info.tppm) {
+		// Tweak chunk size and max age.
+		actx.info.tppm = tppm_init(actx.sample_rate/10, 12);
+	}
+	__sync_synchronize();
+	/* This assumes we can atomically set a bool, and that it won't appear set in the
+	 * callback thread until the initialization, above, is also visible.  */
+	actx.info.do_tppm = enable;
 }
