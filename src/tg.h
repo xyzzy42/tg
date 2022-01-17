@@ -171,8 +171,10 @@ void pb_destroy_clone(struct processing_buffers *p);
 void setup_cal_data(struct calibration_data *cd);
 void cal_data_destroy(struct calibration_data *cd);
 int test_cal(struct processing_buffers *p);
-void make_hp(struct filter *f, double freq);
-void make_lp(struct filter *f, double freq);
+void make_hp(struct filter *f, double freq); // q = 1/√2
+void make_hpq(struct filter *f, double freq, double q);
+void make_lp(struct filter *f, double freq); // q = 1/√2
+void make_lpq(struct filter *f, double freq, double q);
 void make_bp(struct filter *f, double freq, double bw);
 void make_ap(struct filter *f, double freq, double bw);
 void make_notch(struct filter *f, double freq, double bw);
