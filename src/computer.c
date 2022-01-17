@@ -83,7 +83,7 @@ static int guess_bph(double period)
 
 static void compute_update_cal(struct computer *c)
 {
-	c->actv->signal = analyze_pa_data_cal(c->pdata, c->cdata);
+	c->actv->signal = analyze_processing_data_cal(c->pdata, c->cdata);
 	if(c->actv->pb) {
 		pb_destroy_clone(c->actv->pb);
 		c->actv->pb = NULL;
@@ -110,7 +110,7 @@ static void compute_update(struct computer *c)
 	unsigned int stepmask = BITMASK(NSTEPS); // Mask of available steps
 	do {
 		stepmask &= ~BIT(step);
-		analyze_pa_data(c->pdata, step, c->actv->bph, c->actv->la, c->actv->events_from);
+		analyze_processing_data(c->pdata, step, c->actv->bph, c->actv->la, c->actv->events_from);
 
 		if (ps[step].ready && ps[step].sigma < ps[step].period / 10000) {
 			// Try next step if it's available
