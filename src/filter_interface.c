@@ -673,10 +673,12 @@ static void filter_settings_update(FilterDialogPrivate *priv, GtkTreeIter* iter,
 		g_signal_handlers_block_matched(G_OBJECT(priv->type), G_SIGNAL_MATCH_FUNC, 0,0,NULL, filter_edit_apply, NULL);
 		g_signal_handlers_block_matched(G_OBJECT(priv->enabled), G_SIGNAL_MATCH_FUNC, 0,0,NULL, filter_edit_apply, NULL);
 
+		gtk_range_set_range(priv->q, 0, filter_defaults[type].hasq ? 10 : 1);
 		gtk_combo_box_set_active(priv->type, type);
 		gtk_range_set_value(priv->center, freq);
 		gtk_range_set_value(priv->q, q);
 		gtk_range_set_value(priv->gain, gain);
+		g_object_set(priv->q, "label", filter_defaults[type].hasq ? "Q" : "BW", NULL);
 		g_object_set(priv->gain, "sensitive", filter_defaults[type].hasgain, NULL);
 		gtk_toggle_button_set_active(priv->enabled, enabled);
 		gtk_scale_clear_marks(GTK_SCALE(priv->q));
