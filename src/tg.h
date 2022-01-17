@@ -108,6 +108,13 @@ struct processing_buffers {
 #endif
 };
 
+struct processing_data {
+	struct processing_buffers *buffers;
+	uint64_t last_tic;
+	int last_step;	//!< Guess of step (buffers index) to try first, based on last iteration
+	int is_light;
+};
+
 struct calibration_data {
 	int wp;
 	int size;
@@ -127,21 +134,14 @@ void setup_buffers(struct processing_buffers *b);
 void pb_destroy(struct processing_buffers *b);
 struct processing_buffers *pb_clone(struct processing_buffers *p);
 void pb_destroy_clone(struct processing_buffers *p);
-void process(struct processing_buffers *p, int bph, double la, int light);
 void setup_cal_data(struct calibration_data *cd);
 void cal_data_destroy(struct calibration_data *cd);
 int test_cal(struct processing_buffers *p);
-int process_cal(struct processing_buffers *p, struct calibration_data *cd);
 void make_hp(struct filter *f, double freq);
+bool analyze_processing_data(struct processing_data *pd, int step, int bph, double la, uint64_t events_from);
+int analyze_processing_data_cal(struct processing_data *pd, struct calibration_data *cd);
 
 /* audio.c */
-struct processing_data {
-	struct processing_buffers *buffers;
-	uint64_t last_tic;
-	int last_step;	//!< Guess of step (buffers index) to try first, based on last iteration
-	int is_light;
-};
-
 #define AUDIO_RATES       {22050,       44100,      48000,    96000,     192000 }
 #define AUDIO_RATE_LABELS {"22.05 kHz", "44.1 kHz", "48 kHz", "96 kHz", "192 kHz" }
 #define NUM_AUDIO_RATES ARRAY_SIZE((int[])AUDIO_RATES)
@@ -150,8 +150,6 @@ int start_portaudio(int device, int *nominal_sample_rate, double *real_sample_ra
 int terminate_portaudio();
 uint64_t get_timestamp();
 void fill_buffers(struct processing_buffers *ps);
-bool analyze_pa_data(struct processing_data *pd, int step, int bph, double la, uint64_t events_from);
-int analyze_pa_data_cal(struct processing_data *pd, struct calibration_data *cd);
 void set_audio_light(bool light);
 struct audio_device {
 	const char* name;      //!< Name of device from port audio

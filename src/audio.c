@@ -492,35 +492,6 @@ void fill_buffers(struct processing_buffers *ps)
 	}
 }
 
-/* Returns if buffer was processed ok */
-bool analyze_pa_data(struct processing_data *pd, int step, int bph, double la, uint64_t events_from)
-{
-	struct processing_buffers *p = &pd->buffers[step];
-
-	p->last_tic = pd->last_tic;
-	p->events_from = events_from;
-	process(p, bph, la, pd->is_light);
-	debug("step %d : %f +- %f\n", step, p->period/p->sample_rate, p->sigma/p->sample_rate);
-
-	return p->ready;
-}
-
-int analyze_pa_data_cal(struct processing_data *pd, struct calibration_data *cd)
-{
-	struct processing_buffers *p = pd->buffers;
-	fill_buffers(p);
-
-	int i,j;
-	debug("\nSTART OF CALIBRATION CYCLE\n\n");
-	for(j=0; p[j].sample_count < 2*p[j].sample_rate; j++);
-	for(i=0; i+j<NSTEPS-1; i++)
-		if(test_cal(&p[i+j]))
-			return i ? i+j : 0;
-	if(process_cal(&p[NSTEPS-1], cd))
-		return NSTEPS-1;
-	return NSTEPS;
-}
-
 /** Change to light mode
  *
  * Call to enable or disable light mode.  Changing the mode will empty the audio

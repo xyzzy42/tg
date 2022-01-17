@@ -896,7 +896,7 @@ static void compute_cal(struct calibration_data *cd)
 	cd->state = delta * 3600 * 24 < 0.1 ? 1 : -1;
 }
 
-void process(struct processing_buffers *p, int bph, double la, int light)
+static void process(struct processing_buffers *p, int bph, double la, int light)
 {
 	prepare_data(p, !light);
 
@@ -929,7 +929,7 @@ int test_cal(struct processing_buffers *p)
 	return compute_period(p,7200);
 }
 
-int process_cal(struct processing_buffers *p, struct calibration_data *cd)
+static int process_cal(struct processing_buffers *p, struct calibration_data *cd)
 {
 	prepare_data(p,0);
 	if(compute_period(p,7200)) {
@@ -942,4 +942,33 @@ int process_cal(struct processing_buffers *p, struct calibration_data *cd)
 	if(cd->wp == cd->size && cd->state == 0)
 		compute_cal(cd);
 	return 0;
+}
+
+/* Returns if buffer was processed ok */
+bool analyze_processing_data(struct processing_data *pd, int step, int bph, double la, uint64_t events_from)
+{
+	struct processing_buffers *p = &pd->buffers[step];
+
+	p->last_tic = pd->last_tic;
+	p->events_from = events_from;
+	process(p, bph, la, pd->is_light);
+	debug("step %d : %f +- %f\n", step, p->period/p->sample_rate, p->sigma/p->sample_rate);
+
+	return p->ready;
+}
+
+int analyze_processing_data_cal(struct processing_data *pd, struct calibration_data *cd)
+{
+	struct processing_buffers *p = pd->buffers;
+	fill_buffers(p);
+
+	int i,j;
+	debug("\nSTART OF CALIBRATION CYCLE\n\n");
+	for(j=0; p[j].sample_count < 2*p[j].sample_rate; j++);
+	for(i=0; i+j<NSTEPS-1; i++)
+		if(test_cal(&p[i+j]))
+			return i ? i+j : 0;
+	if(process_cal(&p[NSTEPS-1], cd))
+		return NSTEPS-1;
+	return NSTEPS;
 }
