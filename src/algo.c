@@ -29,6 +29,19 @@ void make_hp(struct filter *f, double freq)
 	f->b2 = (1 - K * sqrt(2) + K * K) * norm;
 }
 
+void make_hpq(struct filter *f, double freq, double q)
+{
+	const double ω0 = 2 * M_PI * freq;
+	const double α = sin(ω0) / (2.0 * q);
+	const double cω0 = cos(ω0);
+	const double norm = 1 / (1 + α);
+	f->a0 = norm * (1 + cω0) / 2.0;
+	f->a1 = norm * -(1 + cω0);
+	f->a2 = f->a0;
+	f->b1 = norm * -2 * cω0;
+	f->b2 = norm * (1 - α);
+}
+
 void make_lp(struct filter *f, double freq)
 {
 	double K = tan(M_PI * freq);
@@ -38,6 +51,19 @@ void make_lp(struct filter *f, double freq)
 	f->a2 = f->a0;
 	f->b1 = 2 * (K * K - 1) * norm;
 	f->b2 = (1 - K * sqrt(2) + K * K) * norm;
+}
+
+void make_lpq(struct filter *f, double freq, double q)
+{
+	const double ω0 = 2 * M_PI * freq;
+	const double α = sin(ω0) / (2.0 * q);
+	const double cω0 = cos(ω0);
+	const double norm = 1 / (1 + α);
+	f->a0 = norm * (1 - cω0) / 2.0;
+	f->a1 = f->a0 * 2.0;
+	f->a2 = f->a0;
+	f->b1 = norm * -2 * cω0;
+	f->b2 = norm * (1 - α);
 }
 
 void make_bp(struct filter *f, double freq, double bw)

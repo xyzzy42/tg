@@ -230,8 +230,8 @@ bool filter_chain_enable(struct filter_chain *chain, unsigned index, bool enable
 static void _filter_set_coefficients(struct filter *f, enum bitype type, double f0_fS, double q, double gain)
 {
 	switch (type) {
-		case HIGHPASS: make_hp(f, f0_fS); break;
-		case LOWPASS: make_lp(f, f0_fS); break;
+		case HIGHPASS: make_hpq(f, f0_fS, q); break;
+		case LOWPASS: make_lpq(f, f0_fS, q); break;
 		case BANDPASS: make_bp(f, f0_fS, q); break;
 		case NOTCH: make_notch(f, f0_fS, q); break;
 		case ALLPASS: make_ap(f, f0_fS, q); break;
