@@ -534,22 +534,28 @@ static float tmean(float *x, int n)
 
 static void compute_phase(struct processing_buffers *p, double period)
 {
-	int i;
-	double x = 0, y = 0;
-	for(i = 0; i < period; i++) {
-		int j;
-		p->waveform[i] = 0;
-		for(j=0;;j++) {
-			int n = round(i + j * period);
-			if(n >= p->sample_count) break;
-			p->waveform[i] += p->samples[n];
+	const int count = period;
+	int i = 0, j;
+
+	/* Compute the average of each element in the period for every cycle in the buffer */
+	memset(p->waveform, 0, sizeof(*p->waveform)*count);
+	/* The i loop has many more iterations than the j loop (~80 to ~9600), so make the i
+	 * loop the inner loop.  Also this processes the samples sequentially. */
+	for(j = 0; round(j * period) < p->sample_count; j++) {
+		int n = round(j * period);
+		for(i = 0; i < count && n + i < p->sample_count; i++) {
+			p->waveform[i] += p->samples[n + i];
 		}
-		p->waveform[i] /= j;
 	}
-	for(i=0; i<period; i++) {
-		double a = i * 2 * M_PI / period;
-		x += p->waveform[i] * cos(a);
-		y += p->waveform[i] * sin(a);
+	/* At this point j cycles of the period been summed in waveform, but the last cycle
+	 * might not have been complete.  i is the position the last cycle stopped at.  */
+	const int lastfull = i;
+	double x = 0, y = 0;
+	for(i = 0; i < count; i++) {
+		const double a = i * (2 * M_PI / period);
+		const double w = p->waveform[i] / (j - (i >= lastfull));
+		x += w * cos(a);
+		y += w * sin(a);
 	}
 	p->phase = period * (M_PI + atan2(y,x)) / (2 * M_PI);
 }
