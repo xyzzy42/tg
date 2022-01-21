@@ -707,6 +707,21 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	cairo_line_to(c, right_margin + .5, height - .5);
 	cairo_stroke(c);
 
+	// Amplitude graph
+	if (snst->amps_count) {
+		cairo_new_path(c);
+		cairo_set_source(c, yellow);
+		for (int i = snst->amps_count; i > 0; i--) {
+			const int idx = (snst->amps_wp + i) % snst->amps_count;
+			if (snst->amps_time[idx] > time) continue;
+			const double t = (time - snst->amps_time[idx]) / beat_length;
+			const double a = (snst->la * snst->amps[idx] - 135.0) / (360-135) * width;
+			if (t > height) break;
+			cairo_line_to(c, width - a, t);
+		}
+		cairo_stroke(c);
+	}
+
 	// Time grid lines
 	cairo_set_line_width(c, 1);
 	cairo_text_extents(c, "0123456789:", &extents);  // for positioning labels
