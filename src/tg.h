@@ -194,6 +194,12 @@ struct snapshot {
 	uint64_t events_from; // used only in timegrapher mode
 	int event_age; // Age of oldest event, measured in beats!
 
+	/** Allocated arrays of amplitude measurements and timestamps */
+	float *amps;		//< Circ buffer with history of amplitude measurements
+	uint64_t *amps_time;	//< Timestamps for amps
+	int amps_wp;		//< Index of recent amp in amps
+	int amps_count;		//< Number of amplitude samples
+
 	int signal;
 
 	int cal_state;

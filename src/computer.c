@@ -52,6 +52,22 @@ struct snapshot *snapshot_clone(struct snapshot *s)
 		t->events = NULL;
 		t->events_tictoc = NULL;
 	}
+	t->amps_count = count_events(s->amps_time, s->amps_wp, s->amps_count);
+	if(t->amps_count) {
+		t->amps_wp = t->amps_count - 1;
+		t->amps = malloc(t->amps_count * sizeof(*t->amps));
+		t->amps_time = malloc(t->amps_count * sizeof(*t->amps_time));
+		int i, j;
+		for(i = t->amps_wp, j = s->amps_wp; i >= 0; i--) {
+			t->amps[i] = s->amps[j];
+			t->amps_time[i] = s->amps_time[j];
+			if(--j < 0) j = s->amps_count - 1;
+		}
+	} else {
+		t->amps_wp = 0;
+		t->amps = NULL;
+		t->amps_time = NULL;
+	}
 	if(s->d) {
 		t->d = malloc(sizeof(*t->d));
 		*t->d = *s->d;
@@ -63,6 +79,8 @@ void snapshot_destroy(struct snapshot *s)
 {
 	if(s->pb) pb_destroy_clone(s->pb);
 	if(s->d) free(s->d);
+	free(s->amps_time);
+	free(s->amps);
 	free(s->events_tictoc);
 	free(s->events);
 	free(s);
@@ -170,6 +188,7 @@ static void compute_events(struct computer *c)
 		 * start.  It's a half-vibration after the last event, to avoid adding
 		 * the same event twice with slightly different timestamps.  */
 		const uint64_t last = s->events[s->events_wp] + floor(p->period / 4);
+		bool newevent = false;
 		int i;
 		for(i=0; i<EVENTS_MAX && p->events[i].pos; i++)
 			if(p->events[i].pos > last) {
@@ -177,7 +196,21 @@ static void compute_events(struct computer *c)
 				s->events[s->events_wp] = p->events[i].pos;
 				s->events_tictoc[s->events_wp] = p->events[i].tictoc;
 				debug("event at %llu\n", s->events[s->events_wp]);
+				newevent = true;
 			}
+
+		/* Add a new amplitude if we have full signal, have new ticks, and it's been
+		 * about a period since the last sample.  Place the amplitude measurement at the
+		 * center of the averaging interval.  */
+		if (newevent && s->signal == NSTEPS && p->amp > 0) {
+			const uint64_t amp_time = p->timestamp - p->interval_count/2;
+			if (amp_time > s->amps_time[s->amps_wp] + (int)(3*p->period/4)) {
+				if(++s->amps_wp == s->amps_count) s->amps_wp = 0;
+				s->amps[s->amps_wp] = p->amp;
+				s->amps_time[s->amps_wp] = amp_time;
+			}
+		}
+
 		s->events_from = p->timestamp - ceil(p->period);
 	} else {
 		s->events_from = get_timestamp(s->is_light);
@@ -319,6 +352,10 @@ struct computer *start_computer(int nominal_sr, int bph, double la, int cal, int
 	s->events_tictoc = calloc(EVENTS_COUNT, sizeof(*s->events_tictoc));
 	s->events_wp = 0;
 	s->events_from = 0;
+	s->amps_count = EVENTS_COUNT/2;
+	s->amps = calloc(EVENTS_COUNT/2, sizeof(*s->amps));
+	s->amps_time = calloc(EVENTS_COUNT/2, sizeof(*s->amps_time));
+	s->amps_wp = 0;
 	s->bph = bph;
 	s->la = la;
 	s->cal = cal;
