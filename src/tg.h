@@ -88,6 +88,10 @@ struct processing_buffers {
 	fftwf_complex *fft, *sc_fft, *tic_fft, *slice_fft;
 	fftwf_plan plan_a, plan_b, plan_c, plan_d, plan_e, plan_f, plan_g;
 	struct filter *lpf;
+	/** Number of samples following values were estimated from.
+	 * This might by the same as sample_count, but can be less if the buffer was cloned and
+	 * only one period of data was saved.  */
+	int interval_count;	
 	double period;		//< Estimated period (tic + toc) in samples
 	double sigma,be,waveform_max,phase,tic_pulse,toc_pulse,amp;
 	double cal_phase;
