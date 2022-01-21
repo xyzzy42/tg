@@ -274,7 +274,7 @@ struct computer *start_computer(int nominal_sr, int bph, double la, int cal, int
 	int i;
 	for(i=0; i<NSTEPS; i++) {
 		p[i].sample_rate = nominal_sr;
-		p[i].sample_count = nominal_sr * (1<<(i+first_step));
+		p[i].interval_count = p[i].sample_count = nominal_sr * (1<<(i+first_step));
 		setup_buffers(&p[i]);
 	}
 

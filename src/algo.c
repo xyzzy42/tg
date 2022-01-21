@@ -138,6 +138,7 @@ struct processing_buffers *pb_clone(struct processing_buffers *p)
 		new->debug = NULL;
 #endif
 
+	new->interval_count = p->interval_count;
 	new->sample_rate = p->sample_rate;
 	new->period = p->period;
 	new->sigma = p->sigma;
