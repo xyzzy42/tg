@@ -18,16 +18,17 @@
 
 #include "tg.h"
 
-static int count_events(struct snapshot *s)
+static int count_events(const uint64_t *events, int wp, int nevents)
 {
-	int i, cnt = 0;
-	if(!s->events_count) return 0;
-	for(i = s->events_wp; s->events[i];) {
-		cnt++;
-		if(--i < 0) i = s->events_count - 1;
-		if(i == s->events_wp) break;
-	}
-	return cnt;
+	int i;
+	if(!nevents || !events[wp]) return 0;
+
+	if(!events[0])
+		for(i = 1; i < wp; i++)
+			if(events[i]) return wp - i + 1;
+	for(i = wp+1; i < nevents; i++)
+		if (events[i]) break;
+	return nevents + wp - i + 1;
 }
 
 struct snapshot *snapshot_clone(struct snapshot *s)
@@ -35,7 +36,7 @@ struct snapshot *snapshot_clone(struct snapshot *s)
 	struct snapshot *t = malloc(sizeof(struct snapshot));
 	memcpy(t,s,sizeof(struct snapshot));
 	if(s->pb) t->pb = pb_clone(s->pb);
-	t->events_count = count_events(s);
+	t->events_count = count_events(s->events, s->events_wp, s->events_count);
 	if(t->events_count) {
 		t->events_wp = t->events_count - 1;
 		t->events = malloc(t->events_count * sizeof(*t->events));
