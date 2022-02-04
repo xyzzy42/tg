@@ -21,11 +21,11 @@
 #include <errno.h>
 
 /* Huge buffer of audio */
-float *pa_buffers;
-unsigned int pa_buffer_size;
-unsigned int write_pointer = 0;
-uint64_t timestamp = 0;
-pthread_mutex_t audio_mutex;
+static float *pa_buffers;
+static unsigned int pa_buffer_size;
+static unsigned int write_pointer = 0;
+static uint64_t timestamp = 0;
+static pthread_mutex_t audio_mutex;
 
 /** A biquadratic filter.
  * Saves the delay taps to allow the filter to continue across multiple calls. */
