@@ -79,6 +79,8 @@
 #define BIT(n) (1u << (n))
 #define BITMASK(n) ((1u << (n)) - 1u)
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#define time_after(a, b) ((int)((b) - (a)) < 0)
+#define time_before(a, b) time_after(b, a)
 
 /** Hold timestamp and type of a vibration. */
 struct event {
@@ -449,3 +451,30 @@ GtkWidget* spin_slider_new(const char* label, gdouble min, gdouble max, gdouble 
 typedef struct _FilterDialog FilterDialog;
 GtkWidget* filter_dialog_new(struct main_window *w);
 void filter_dialog_set_chain(FilterDialog* filter_dialog, struct filter_chain* chain);
+
+/* tppm.c */
+/** True Peak Programme Meter.
+ *
+ * Attempt to find max audio level, for adjusting gain and pre-amplifiers.
+ */
+struct tppm {
+	float peak;		//!< Current max value in moving window
+
+	// For filtering and finding max of each chunk
+	float *buffer;		//!< Buffer of data to be processing
+	unsigned buffer_size;	//!< Size of buffer
+	unsigned offset;	//!< Current buffer pointer
+
+	// Moving window maximum of chunk maxes
+	unsigned max_age;	//!< Time at which peak expires
+	struct {
+		float value;	//!< Value of element
+		unsigned time;	//!< Expire time of element
+	} *deque;		//!< Sorted list of local maxes
+	unsigned tail;		//!< Last (smallest) element in deque
+	unsigned head;		//!< First (largest) element in deque
+	unsigned time;		//!< Current timestamp
+};
+struct tppm* tppm_init(unsigned chunk_size, unsigned max_age);
+void tppm_free(struct tppm* tppm);
+void tppm_process(struct tppm* tppm, const float* data, unsigned length);
