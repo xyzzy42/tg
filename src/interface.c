@@ -777,6 +777,31 @@ static void spectrogramt_click(GtkButton *button, struct main_window *w)
 }
 #endif
 
+static void tppm_meter_active(GtkSwitch *sw, GParamSpec *pspec, struct main_window *w)
+{
+	UNUSED(pspec);
+	UNUSED(w);
+
+	gboolean active = gtk_switch_get_active(sw);
+	set_audio_tppm(w->do_tppm = active);
+	if (!active) {
+		gtk_entry_set_text(GTK_ENTRY(w->tppm_entry), "");
+		gtk_level_bar_set_value(GTK_LEVEL_BAR(w->tppm_level_bar), 0);
+	}
+}
+
+static void tppm_meter_map(GtkWidget *widget, struct main_window *w)
+{
+	if (gtk_widget_get_mapped(widget))
+		tppm_meter_active(GTK_SWITCH(widget), NULL, w);
+	else
+		set_audio_tppm(w->do_tppm = false);
+}
+
+// GtkLevelBar only allows positive values, so bias by 96 dB (16-bit dynamic range).  Values
+// under -96 dB aren't very interesting.
+static inline float tppm_level(float x) { return x + 96; }
+
 static void init_signal_dialog(struct main_window *w)
 {
 	w->signal_dialog = gtk_dialog_new_with_buttons("Signal", NULL,
@@ -790,6 +815,43 @@ static void init_signal_dialog(struct main_window *w)
 	GtkWidget *content = gtk_dialog_get_content_area(GTK_DIALOG(w->signal_dialog));
 	GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
 	gtk_container_add(GTK_CONTAINER(content), vbox);
+
+	GtkWidget *pbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+	gtk_box_pack_start(GTK_BOX(vbox), pbox, FALSE, FALSE, 0);
+
+	gtk_box_pack_start(GTK_BOX(pbox), gtk_label_new("True Peak Programme Meter"), FALSE, FALSE, 0);
+
+	GtkWidget *tppm_switch = gtk_switch_new();
+	gtk_box_pack_start(GTK_BOX(pbox), tppm_switch, FALSE, FALSE, 0);
+	g_signal_connect(G_OBJECT(tppm_switch), "notify::active", G_CALLBACK(tppm_meter_active), w);
+	g_signal_connect(G_OBJECT(tppm_switch), "map", G_CALLBACK(tppm_meter_map), w);
+	g_signal_connect(G_OBJECT(tppm_switch), "unmap", G_CALLBACK(tppm_meter_map), w);
+
+	w->tppm_entry = gtk_entry_new();
+	gtk_box_pack_start(GTK_BOX(pbox), w->tppm_entry, FALSE, FALSE, 0);
+	gtk_entry_set_width_chars(GTK_ENTRY(w->tppm_entry), 10);
+	gtk_entry_set_alignment(GTK_ENTRY(w->tppm_entry), 1.0);
+	gtk_widget_set_can_focus(w->tppm_entry, FALSE);
+	gtk_editable_set_editable(GTK_EDITABLE(w->tppm_entry), FALSE);
+
+	w->tppm_level_bar = gtk_level_bar_new_for_interval(tppm_level(-70.0), tppm_level(6.0));
+	gtk_box_pack_start(GTK_BOX(pbox), w->tppm_level_bar, TRUE, TRUE, 0);
+	gtk_orientable_set_orientation(GTK_ORIENTABLE(w->tppm_level_bar), GTK_ORIENTATION_HORIZONTAL);
+	gtk_level_bar_add_offset_value(GTK_LEVEL_BAR(w->tppm_level_bar), "none", tppm_level(-45.0));
+	gtk_level_bar_add_offset_value(GTK_LEVEL_BAR(w->tppm_level_bar), GTK_LEVEL_BAR_OFFSET_LOW, tppm_level(-30.0));
+	gtk_level_bar_add_offset_value(GTK_LEVEL_BAR(w->tppm_level_bar), GTK_LEVEL_BAR_OFFSET_HIGH, tppm_level(-6.0));
+	gtk_level_bar_add_offset_value(GTK_LEVEL_BAR(w->tppm_level_bar), GTK_LEVEL_BAR_OFFSET_FULL, tppm_level(0.0));
+
+	GtkCssProvider *pro = gtk_css_provider_new();
+	gtk_css_provider_load_from_data(pro,
+		"levelbar block.none.filled { background-color: gray; }"
+		"levelbar block.low.filled { background-color: yellow; }"
+		"levelbar block.high.filled { background-color: green; }"
+		"levelbar block.full.filled { background-color: orange; }"
+		"levelbar block.filled { background-color: red; }",
+		-1, NULL);
+	gtk_style_context_add_provider(gtk_widget_get_style_context(w->tppm_level_bar),
+		GTK_STYLE_PROVIDER(pro), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
 #if HAVE_SPECTROGRAM
 	/* Spectrogram buttons and duration */
@@ -1005,6 +1067,21 @@ guint save_on_change_timer(struct main_window *w)
 	return TRUE;
 }
 
+static void ppm_update(struct main_window *w)
+{
+	if (!w->do_tppm)
+		return;
+
+	const float tppm = 20.0 * log10f(get_audio_peak());
+	if (!isnormal(tppm))
+		return;
+
+	char buf[16];
+	snprintf(buf, sizeof(buf), "%.1f dBFS", tppm);
+	gtk_entry_set_text(GTK_ENTRY(w->tppm_entry), buf);
+	gtk_level_bar_set_value(GTK_LEVEL_BAR(w->tppm_level_bar), MAX(tppm_level(tppm), 0.0));
+}
+
 guint refresh(struct main_window *w)
 {
 	lock_computer(w->computer);
@@ -1025,6 +1102,7 @@ guint refresh(struct main_window *w)
 	unlock_computer(w->computer);
 	refresh_results(w);
 	op_set_snapshot(w->active_panel, w->active_snapshot);
+	ppm_update(w);
 
 	int p = gtk_notebook_get_current_page(GTK_NOTEBOOK(w->notebook));
 	GtkWidget *panel = gtk_notebook_get_nth_page(GTK_NOTEBOOK(w->notebook), p);
