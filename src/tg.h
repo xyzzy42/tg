@@ -361,6 +361,8 @@ struct main_window {
 	/* Signal dialog */
 	GtkWidget *signal_dialog;
 	GtkWidget *signal_graph;
+	GtkWidget *tppm_entry;
+	GtkWidget *tppm_level_bar;
 	GtkWidget *spectime_spin;
 
 	GtkWidget *filter_chain_dialog;
@@ -383,6 +385,7 @@ struct main_window {
 	int audio_rate;  // Selected rate
 	int hpf_freq;    // Low-pass filter cutoff frequency
 	struct filter_chain *filter_chain; // To be passed to audio startup
+	bool do_tppm;	//!< Peak meter is enabled
 
 	bool vertical_layout;
 
