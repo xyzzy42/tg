@@ -559,12 +559,14 @@ static void compute_waveform(struct processing_buffers *p, int wf_size)
 	int i;
 	for(i=0; i<2*p->sample_rate; i++)
 		p->waveform[i] = 0;
+	const int phase = round(p->phase);
+	const int binsize = ceil(1 + p->sample_count / wf_size);
+	float bin[binsize];
 	for(i=0; i < wf_size; i++) {
-		float bin[(int)ceil(1 + p->sample_count / wf_size)];
 		int j;
-		double k = fmod(i+p->phase,wf_size);
+		int k = (i + phase) % wf_size;
 		for(j=0;;j++) {
-			int n = round(k+j*wf_size);
+			int n = k+j*wf_size;
 			if(n >= p->sample_count) break;
 			bin[j] = p->samples[n];
 		}
