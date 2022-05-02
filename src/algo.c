@@ -780,7 +780,7 @@ static void compute_amplitude(struct processing_buffers *p, double la)
 				double pulse = p->period/8 - i - 1;
 				if(k) tic_pulse = pulse;
 				else toc_pulse = pulse;
-				debug("amp %s pulse = %f\n", k ? "tic" : "toc", 1000 * pulse / p->sample_rate);
+				debug("amp %s pulse = %f ms\n", k ? "tic" : "toc", 1000 * pulse / p->sample_rate);
 			} else
 				goto next_threshold;
 		}
@@ -794,7 +794,7 @@ static void compute_amplitude(struct processing_buffers *p, double la)
 			p->toc_pulse = toc_pulse;
 			p->be = p->period/2 - fabs(p->toc - p->tic + p->tic_pulse - p->toc_pulse);
 			debug("amp: be = %.1f\n",fabs(p->be)*1000/p->sample_rate);
-			debug("amp = %f\n", la * p->amp);
+			debug("amp = %f°\n", la * p->amp);
 			break;
 		} else
 			debug("amp rejected\n");
