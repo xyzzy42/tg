@@ -238,6 +238,7 @@ enum _filter_list_columns {
 	COL_Q,
 	COL_GAIN,
 	COL_ENABLED,
+	COL_WASENABLED,
 	COL_ID,
 	COL_NONBLANK,
 	COL_MAX
@@ -335,6 +336,7 @@ static void add_filter(GtkButton* button, FilterDialog* filter_dialog)
 	gtk_list_store_insert_with_values(GTK_LIST_STORE(priv->model), &iter, n,
 		COL_TYPE, typeid,
 		COL_ENABLED, FALSE,
+		COL_WASENABLED, FALSE,
 		COL_ID, n,
 		COL_NONBLANK, TRUE,
 		COL_FREQ, freq,
@@ -499,6 +501,7 @@ static void filter_dialog_init(FilterDialog* filter_dialog)
 		G_TYPE_DOUBLE,	// Q or BW
 		G_TYPE_DOUBLE,	// Gain
 		G_TYPE_BOOLEAN,	// Enabled
+		G_TYPE_BOOLEAN, // Was Enabled
 		G_TYPE_INT,	// Filter #
 		G_TYPE_BOOLEAN	// Non-blank flag
 	));
@@ -746,9 +749,13 @@ static void filter_check_graph(FilterDialogPrivate *priv, GtkTreePath* path, gbo
 static void filter_list_changed(GtkTreeModel* model, GtkTreePath* path, GtkTreeIter* iter, FilterDialogPrivate *priv)
 {
 	gint id, row = gtk_tree_path_get_indices(path)[0];
-	gboolean enabled, nonblank;
-	gtk_tree_model_get(model, iter, COL_ID, &id, COL_NONBLANK, &nonblank, COL_ENABLED, &enabled, -1);
+	gboolean enabled, nonblank, was_enabled;
+	gtk_tree_model_get(model, iter, COL_ID, &id, COL_NONBLANK, &nonblank, COL_ENABLED, &enabled, COL_WASENABLED, &was_enabled, -1);
 	prdbg("changed %sblank filter, id is %u at row %d", nonblank ? "non-" : "", id, row);
+
+	g_signal_handlers_block_matched(G_OBJECT(priv->model), G_SIGNAL_MATCH_FUNC, 0,0,NULL, filter_list_changed, NULL);
+	gtk_list_store_set(GTK_LIST_STORE(priv->model), iter, COL_WASENABLED, enabled, -1);
+	g_signal_handlers_unblock_matched(G_OBJECT(priv->model), G_SIGNAL_MATCH_FUNC, 0,0,NULL, filter_list_changed, NULL);
 
 	/* There are two ways this gets called by gtk.  One is when the data changes.
 	 * The other the middle part of a three step drag&drop process.  In the latter
@@ -767,7 +774,7 @@ static void filter_list_changed(GtkTreeModel* model, GtkTreePath* path, GtkTreeI
 		if (id != row)
 			printf("DND not in progress but row has incorrect ID? %u in row %u\n", id, row);
 
-		filter_check_graph(priv, path, enabled);
+		filter_check_graph(priv, path, enabled || was_enabled);
 		filter_settings_update(priv, iter, true);
 	}
 }
@@ -857,6 +864,7 @@ static void fill_filter_liststore(FilterDialogPrivate* priv)
 			COL_FREQ,	f->frequency,
 			COL_Q,		f->bw,
 			COL_ENABLED,	f->enabled,
+			COL_WASENABLED, f->enabled,
 			COL_GAIN,	f->gain,
 			COL_ID,		i,
 			COL_NONBLANK,	TRUE,
