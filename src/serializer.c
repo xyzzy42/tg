@@ -368,6 +368,7 @@ static int serialize_snapshot(FILE *f, struct snapshot *s, char *name)
 	SERIALIZE(double,la);
 	SERIALIZE(int,cal);
 	SERIALIZE(int,events_wp);
+	SERIALIZE(int,amps_wp);
 	SERIALIZE(int,signal);
 	SERIALIZE(double,sample_rate);
 	SERIALIZE(int,guessed_bph);
@@ -378,6 +379,10 @@ static int serialize_snapshot(FILE *f, struct snapshot *s, char *name)
 	SERIALIZE(uint64_t,d->anchor_time);
 	SERIALIZE(double,d->anchor_offset);
 	SERIALIZE(int,is_light);
+	if(make_label(f, "amps")) return 1;
+	if(serialize_float_array(f, s->amps, s->amps_count)) return 1;
+	if(make_label(f, "amps_time")) return 1;
+	if(serialize_uint64_t_array(f, s->amps_time, s->amps_count)) return 1;
 	return serialize_struct_end(f);
 }
 
@@ -418,7 +423,7 @@ static int scan_snapshot(FILE *f, struct snapshot **s, char **name)
 
 	n = 0;
 	if(0 != fscanf(f, " T;%n", &n) || !n) goto error;
-	int events_count2 = 0;
+	int events_count2 = 0, amps_count2 = 0;
 	for(;;) {
 		if(scan_label(f,l)) goto error;
 		if(!strcmp("__end__", l)) break;
@@ -455,6 +460,8 @@ static int scan_snapshot(FILE *f, struct snapshot **s, char **name)
 		SCAN_ARRAY(float, pb->waveform, (*s)->pb->sample_count);
 		SCAN_ARRAY(uint64_t, events, (*s)->events_count);
 		SCAN_ARRAY(bool, events_tictoc, events_count2);
+		SCAN_ARRAY(uint64_t, amps_time, (*s)->amps_count);
+		SCAN_ARRAY(float, amps, amps_count2);
 		SCAN(int,pb->sample_rate);
 		SCAN(double,pb->period);
 		SCAN(double,pb->waveform_max);
@@ -469,6 +476,7 @@ static int scan_snapshot(FILE *f, struct snapshot **s, char **name)
 		SCAN(double,la);
 		SCAN(int,cal);
 		SCAN(int,events_wp);
+		SCAN(int,amps_wp);
 		SCAN(int,signal);
 		SCAN(double,sample_rate);
 		SCAN(int,guessed_bph);
@@ -512,6 +520,9 @@ static int scan_snapshot(FILE *f, struct snapshot **s, char **name)
 	if((*s)->be < 0 || (*s)->be > 99.9) goto error;
 	debug("serializer: checking amplitude\n");
 	if((*s)->amp < 0 || (*s)->amp > 360) goto error;
+	debug("serializer: checking amplitudes\n");
+	if((*s)->amps && (*s)->amps_count != amps_count2)
+		goto error;
 	debug("serializer: checking scale\n");
 	if((*s)->d->beat_scale == 0) (*s)->d->beat_scale = 1.0/PAPERSTRIP_ZOOM;
 	if((*s)->d->beat_scale < 0 || (*s)->d->beat_scale > 1) goto error;
