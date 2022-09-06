@@ -388,6 +388,18 @@ static int serialize_snapshot(FILE *f, struct snapshot *s, char *name)
 		continue;					\
 	}}
 
+#define SCAN_ARRAY(T, A, count)						\
+	if(!strcmp( #A, l)) {						\
+		debug("serialsize: scanning " #A "\n");			\
+		uint64_t x;						\
+		if((*s)->A ||						\
+		   scan_##T##_array(f, &(*s)->A, INT_MAX, &x))		\
+			goto error;					\
+		count = x;						\
+		continue;						\
+	}
+
+
 static int scan_snapshot(FILE *f, struct snapshot **s, char **name)
 {
 	char l[LABEL_SIZE+1];
@@ -406,6 +418,7 @@ static int scan_snapshot(FILE *f, struct snapshot **s, char **name)
 
 	n = 0;
 	if(0 != fscanf(f, " T;%n", &n) || !n) goto error;
+	int events_count2 = 0;
 	for(;;) {
 		if(scan_label(f,l)) goto error;
 		if(!strcmp("__end__", l)) break;
@@ -439,6 +452,9 @@ static int scan_snapshot(FILE *f, struct snapshot **s, char **name)
 			// Check that matches events_count?
 			continue;
 		}
+		SCAN_ARRAY(float, pb->waveform, (*s)->pb->sample_count);
+		SCAN_ARRAY(uint64_t, events, (*s)->events_count);
+		SCAN_ARRAY(bool, events_tictoc, events_count2);
 		SCAN(int,pb->sample_rate);
 		SCAN(double,pb->period);
 		SCAN(double,pb->waveform_max);
@@ -482,9 +498,10 @@ static int scan_snapshot(FILE *f, struct snapshot **s, char **name)
 	if((*s)->events_count && (*s)->events_wp >= (*s)->events_count) goto error;
 	if((*s)->signal > NSTEPS) (*s)->signal = NSTEPS;
 	debug("serializer: checking events_tictoc\n");
+	if ((*s)->events_tictoc && (*s)->events_count != events_count2)
+		goto error;
 	if (!(*s)->events_tictoc)
 		(*s)->events_tictoc = calloc((*s)->events_count, sizeof(*(*s)->events_tictoc));
-	// Keep track of events_tictic count and compare to (*s)->events_count
 	debug("serializer: checking sample_rate\n");
 	if((*s)->sample_rate <= 0) goto error;
 	debug("serializer: checking guessed_bph\n");
