@@ -879,8 +879,9 @@ static void handle_zoom_original(GtkScaleButton *b, struct output_panel *op)
 	gtk_widget_queue_draw(op->paperstrip_drawing_area);
 }
 
-static void handle_zoom(GtkScaleButton *b, struct output_panel *op)
+static void handle_zoom(GtkScaleButton *b, gdouble value, struct output_panel *op)
 {
+	UNUSED(value);
 	struct display *ssd = op->snst->d;
 	if (!ssd) return;  // Maybe chart hasn't been displayed even once yet?
 
