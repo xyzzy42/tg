@@ -37,7 +37,11 @@ Summary: Mechanical watch movement timegrapher
 License: GPL2
 Group: Misc
 URL: https://github.com/vacaboja/tg
+%if %{have_rpkg}
+Source: {{{ git_repo_pack }}}
+%else
 Source: %name-%version.tar.gz
+%endif
 Packager: Trent Piepho <tpiepho@gmail.com>
 BuildRequires: gcc, gtk3-devel, portaudio-devel, fftw-devel
 BuildRequires: desktop-file-utils, autoconf, automake
@@ -50,7 +54,11 @@ produces real-time readings of the rate (or accuracy) and various other
 operational parameters.
 
 %prep
+%if %{have_rpkg}
+{{{ git_repo_setup_macro }}}
+%else
 %setup -q
+%endif
 
 %build
 autoreconf -fi
