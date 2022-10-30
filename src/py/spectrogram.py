@@ -43,12 +43,12 @@ def plotspectrogram_beat(which=None, figsize=(800,600)):
     ticp, tocp = tg.getpulses()
 
     nfft = 1024	# N freq points (FFT size), really nfft/2+1 bins
-    shift = 8	# step size
-    Np = 256	# window size
-    K = 6	# number of tapers
+    shift = 6	# step size
+    Np = 257	# window size
+    K = 8	# number of tapers
     tm = 6.0	# time support of tapers
-    flock = 0.01# frequency locking parameter
-    tlock = 5	# time locking parameter
+    flock = 0.02# frequency locking parameter
+    tlock = 8	# time locking parameter
 
     s, bo = tg.getbeataudio(event)
     if s is None: return
@@ -77,9 +77,11 @@ def plotspectrogram_beat(which=None, figsize=(800,600)):
     ax.set_ylabel('Frequency (Hz)')
     fig.colorbar(mesh)
 
-    ax.axvline(0, ls=':', c='w', alpha=0.5)
-    ax.axvline(-ticp/Fs*1000, ls=':', c='b', alpha=0.5)
-    ax.axvline(-tocp/Fs*1000, ls=':', c='b', alpha=0.5)
+    ax.axvline(0, ls=':', c='w', alpha=0.8)
+    if phase:
+        ax.axvline(-ticp/Fs*1000, ls=':', c='r', alpha=0.7)
+    else:
+        ax.axvline(-tocp/Fs*1000, ls=':', c='r', alpha=0.7)
 
     canvas.draw()
     return canvas.buffer_rgba()
@@ -90,13 +92,13 @@ def plotspectrogram_time(length, figsize=(800,600)):
     # Skip most recent audio to avoid mouse click sound
     skip = int(0.250 * Fs)
 
-    nfft = 512	# N freq points (FFT size), really nfft/2+1 bins
+    nfft = 1024	# N freq points (FFT size), really nfft/2+1 bins
     shift = 16	# step size
-    Np = 256	# window size
-    K = 6	# number of tapers
+    Np = 257	# window size
+    K = 8	# number of tapers
     tm = 6.0	# time support of tapers
     flock = 0.01# frequency locking parameter
-    tlock = 5	# time locking parameter
+    tlock = 8	# time locking parameter
 
     s, timestamp = tg.getlastaudio(length * Fs + skip)
     if s is None: return

@@ -214,12 +214,13 @@ static PyObject* get_beat_audio(PyObject* self, PyObject* arg)
 	const struct main_window* w = get_w(self);
 	const struct snapshot* snst = w->active_snapshot;
 	const uint64_t timestamp = PyLong_AsSize_t(PyNumber_Long(arg));
+	const int pad = 3; // Extra padding, so windowed function can have valid data over SPAN
 
 	if (timestamp == (size_t)-1 && PyErr_Occurred())
 		return NULL;
 
-	const unsigned offset = NEGATIVE_SPAN * snst->sample_rate / 1000;
-	const unsigned ticklen = (NEGATIVE_SPAN + POSITIVE_SPAN) * snst->sample_rate / 1000;
+	const unsigned offset = (NEGATIVE_SPAN + pad) * snst->sample_rate / 1000;
+	const unsigned ticklen = (NEGATIVE_SPAN + POSITIVE_SPAN + pad + pad) * snst->sample_rate / 1000;
 	if (timestamp < offset)
 		Py_RETURN_NONE; // throw range exception or something
 	return Py_BuildValue("Ni", pack_audio(timestamp - offset, ticklen), offset);
