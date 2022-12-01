@@ -388,7 +388,7 @@ static void prepare_data(struct processing_buffers *b, int run_noise_suppressor)
 
 	fftwf_execute(b->plan_a);
 	for(i=0; i < b->sample_count+1; i++)
-			b->sc_fft[i] = b->fft[i] * conj(b->fft[i]);
+		b->sc_fft[i] = b->fft[i] * conjf(b->fft[i]);
 	fftwf_execute(b->plan_b);
 
 #ifdef DEBUG
@@ -670,7 +670,7 @@ static void prepare_waveform(struct processing_buffers *p)
 	int i;
 	fftwf_execute(p->plan_c);
 	for(i=0; i < p->sample_rate+1; i++)
-			p->sc_fft[i] *= conj(p->sc_fft[i]);
+			p->sc_fft[i] *= conjf(p->sc_fft[i]);
 	fftwf_execute(p->plan_d);
 }
 
@@ -768,7 +768,7 @@ static void do_locate_events(struct event *events, struct processing_buffers *p,
 			p->slice_wf[i] = p->samples[i+s];
 		fftwf_execute(p->plan_f);
 		for(i=0; i < p->sample_rate/2+1; i++)
-			p->slice_fft[i] *= conj(p->tic_fft[i]);
+			p->slice_fft[i] *= conjf(p->tic_fft[i]);
 		fftwf_execute(p->plan_g);
 		for(i=0; i < p->sample_rate/2; i++)
 			p->tic_c[i+s] = p->slice_wf[i];
