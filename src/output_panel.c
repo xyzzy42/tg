@@ -889,8 +889,11 @@ static void handle_clear_trace(GtkButton *b, struct output_panel *op)
 	if(op->computer) {
 		lock_computer(op->computer);
 		if(!op->snst->calibrate) {
-			memset(op->snst->events,0,op->snst->events_count*sizeof(uint64_t));
+			// Trigger computer to clear its history next update
 			op->computer->clear_trace = 1;
+			// Clear current display immediately
+			op->snst->events_count = 0;
+			op->snst->amps_count = 0;
 		}
 		unlock_computer(op->computer);
 		gtk_widget_queue_draw(op->paperstrip_drawing_area);

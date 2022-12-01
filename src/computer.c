@@ -286,8 +286,11 @@ static void *computing_thread(void *void_computer)
 			if(c->curr)
 				snapshot_destroy(c->curr);
 			if(c->clear_trace) {
-				if(!calibrate)
+				if(!calibrate) {
 					memset(c->actv->events,0,c->actv->events_count*sizeof(*c->actv->events));
+					memset(c->actv->amps,0,c->actv->amps_count*sizeof(*c->actv->amps));
+					memset(c->actv->amps_time,0,c->actv->amps_count*sizeof(*c->actv->amps_time));
+				}
 				c->clear_trace = 0;
 			}
 			c->curr = snapshot_clone(c->actv);
