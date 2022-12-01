@@ -23,9 +23,11 @@ static int count_events(const uint64_t *events, int wp, int nevents)
 	int i;
 	if(!nevents || !events[wp]) return 0;
 
-	if(!events[0])
+	if(!events[0]) {
 		for(i = 1; i < wp; i++)
-			if(events[i]) return wp - i + 1;
+			if(events[i]) break;
+		return wp - i + 1;
+	}
 	for(i = wp+1; i < nevents; i++)
 		if (events[i]) break;
 	return nevents + wp - i + 1;
