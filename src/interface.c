@@ -445,6 +445,48 @@ static void handle_snapshot(GtkButton *b, struct main_window *w)
 	add_new_tab(s, NULL, w);
 }
 
+static void dump_to_json(GtkButton *b, struct main_window *w)
+{
+	UNUSED(b);
+	const struct snapshot *snst = w->active_snapshot;
+
+	FILE *f = fopen("dump.json", "we");
+	if (!f) return;
+
+	fprintf(f, "{\n  \"sample_rate\": %f,\n", snst->sample_rate);
+	fprintf(f, "  \"bph\": %d,\n", snst->bph);
+	fprintf(f, "  \"beats\": {\n");
+	fprintf(f, "    \"times\": [");
+	for (int i = -snst->events_count + 1; i <= 0; i++) {
+		int j = (i + snst->events_wp) % snst->events_count;
+		fprintf(f, "%lu%s", snst->events[j], i ? ", " : "],\n");
+	}
+	fprintf(f, "    \"tictoc\": [");
+	for (int i = -snst->events_count + 1; i <= 0; i++) {
+		int j = (i + snst->events_wp) % snst->events_count;
+		fprintf(f, "%s%s", snst->events_tictoc[j] ? "true":"false", i ? ", " : "]\n");
+	}
+	fprintf(f, "  },\n  \"amplitude\": ");
+	if (snst->amps_count) {
+		fprintf(f, "{\n    \"values\": [");
+		for (int i = -snst->amps_count + 1; i <= 0; i++) {
+			int j = (i + snst->amps_wp) % snst->amps_count;
+			fprintf(f, "%f%s", snst->amps[j], i ? ", " : "],\n");
+		}
+		fprintf(f, "    \"times\": [");
+		for (int i = -snst->amps_count + 1; i <= 0; i++) {
+			int j = (i + snst->amps_wp) % snst->amps_count;
+			fprintf(f, "%lu%s", snst->amps_time[j], i ? ", " : "],\n");
+		}
+		fprintf(f, "    \"liftangle\": %f\n", snst->la);
+		fprintf(f, "  }\n}\n");
+	} else {
+		fprintf(f, "null\n}\n");
+	}
+	fclose(f);
+}
+
+
 static void chooser_set_filters(GtkFileChooser *chooser)
 {
 	GtkFileFilter *tgj_filter = gtk_file_filter_new();
@@ -973,6 +1015,10 @@ static void init_main_window(struct main_window *w)
 	gtk_box_pack_start(GTK_BOX(hbox), w->snapshot_button, FALSE, FALSE, 0);
 	gtk_widget_set_sensitive(w->snapshot_button, FALSE);
 	g_signal_connect(w->snapshot_button, "clicked", G_CALLBACK(handle_snapshot), w);
+
+	GtkWidget *button = gtk_button_new_with_label("Dump");
+	gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+	g_signal_connect(button, "clicked", G_CALLBACK(dump_to_json), w);
 
 	// Snapshot name field
 	GtkWidget *name_label = gtk_label_new("Current snapshot:");
