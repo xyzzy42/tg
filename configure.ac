@@ -1,7 +1,7 @@
 define([tg_version], m4_normalize(m4_include([version])))
 AC_CONFIG_MACRO_DIRS([m4])
 
-AC_INIT([Tg], [tg_version], [vacaboja@gmail.com], [tg-timer], [https://github.com/vacaboja/tg])
+AC_INIT([Tg], [tg_version], [tpiepho@gmail.com], [tg-timer], [https://github.com/xyzzy42/tg])
 AM_INIT_AUTOMAKE([-Wall foreign subdir-objects])
 
 AC_PROG_CC

@@ -1,8 +1,8 @@
-# A program for timing mechanical watches [![Build Status](https://travis-ci.org/vacaboja/tg.svg?branch=master)](https://travis-ci.org/vacaboja/tg)
+# A program for timing mechanical watches
 
 The program tg is distributed under the GNU GPL license version 2. The full
 source code of tg is available at
-[https://github.com/vacaboja/tg](https://github.com/vacaboja/tg) and its
+[https://github.com/xyzzy42/tg](https://github.com/xyzzy42/tg) and its
 copyright belongs to the respective contributors.
 
 Tg is in development, and there is still no manual. Some info can be found
@@ -63,7 +63,7 @@ gtk+3, portaudio2, fftw3 (all available as open-source).
 
 Release build:
 ```sh
-git clone https://github.com/vacaboja/tg.git
+git clone https://github.com/xyzzy42/tg.git
 cd tg
 ./autogen.sh
 ./configure
@@ -83,7 +83,7 @@ issue the following commands.
 
 ```sh
 pacman -S mingw-w64-x86_64-gcc make pkg-config mingw-w64-x86_64-gtk3 mingw-w64-x86_64-portaudio mingw-w64-x86_64-fftw git autoconf automake libtool
-git clone https://github.com/vacaboja/tg.git
+git clone https://github.com/xyzzy42/tg.git
 cd tg
 ./autogen.sh
 ./configure
@@ -96,7 +96,7 @@ To compile tg on Debian
 
 ```sh
 sudo apt-get install libgtk-3-dev libjack-jackd2-dev portaudio19-dev libfftw3-dev git autoconf automake libtool
-git clone https://github.com/vacaboja/tg.git
+git clone https://github.com/xyzzy42/tg.git
 cd tg
 ./autogen.sh
 ./configure
@@ -115,7 +115,7 @@ To compile tg on Fedora
 
 ```sh
 sudo dnf install fftw-devel portaudio-devel gtk3-devel autoconf automake libtool
-git clone https://github.com/vacaboja/tg.git
+git clone https://github.com/xyzzy42/tg.git
 cd tg
 ./autogen.sh
 ./configure
@@ -142,7 +142,7 @@ And run the configure script with the `--with-python` option.
 
 ```sh
 brew install pkg-config autoconf automake libtool gtk+3 portaudio fftw gnome-icon-theme
-git clone https://github.com/vacaboja/tg.git
+git clone https://github.com/xyzzy42/tg.git
 cd tg
 ./autogen.sh
 ./configure

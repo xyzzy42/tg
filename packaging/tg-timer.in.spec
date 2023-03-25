@@ -36,7 +36,7 @@ Release: %{?pkgrel}%{!?pkgrel:1}%{?snapinfo}%{?dist}
 Summary: Mechanical watch movement timegrapher
 License: GPL2
 Group: Misc
-URL: https://github.com/vacaboja/tg
+URL: https://github.com/xyzzy42/tg
 %if %{have_rpkg}
 Source: {{{ git_repo_pack }}}
 %else
