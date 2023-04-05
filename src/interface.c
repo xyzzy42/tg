@@ -1162,17 +1162,14 @@ static void start_interface(GApplication* app, void *p)
 
 	initialize_palette();
 
-	struct main_window *w = malloc(sizeof(struct main_window));
+	struct main_window *w = calloc(1, sizeof(struct main_window));
 
 	w->app = GTK_APPLICATION(app);
 
-	w->zombie = 0;
 	w->controls_active = 1;
 	w->cal = MIN_CAL - 1;
 	w->bph = 0;
 	w->la = DEFAULT_LA;
-	w->calibrate = 0;
-	w->is_light = 0;
 	w->vertical_layout = true;
 	w->nominal_sr = 0; // Use default rate, e.g. PA_SAMPLE_RATE
 	w->audio_device = -1;
