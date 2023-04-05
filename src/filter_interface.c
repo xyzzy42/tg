@@ -15,6 +15,12 @@ static inline void prdbg(const char *fmt, ...)
 #define container_add(container, widget) \
 	gtk_container_add(GTK_CONTAINER((container)), GTK_WIDGET((widget)))
 
+// Avoid warnings for function only used by filter graphs when that feature is not enabled
+#if HAVE_FILTERGRAPH
+#define __filter_unused
+#else
+#define __filter_unused __attribute__((unused))
+#endif
 
 //  Spin Slider widget
 typedef struct {
@@ -404,6 +410,7 @@ static void filter_edit_apply(GtkRange *range, FilterDialogPrivate* priv)
 		-1);
 }
 
+__filter_unused
 static void filter_graph_toggled(GtkToggleButton *button, FilterDialogPrivate* priv)
 {
 	priv->dograph = gtk_toggle_button_get_active(button);
@@ -416,6 +423,7 @@ static void filter_graph_toggled(GtkToggleButton *button, FilterDialogPrivate* p
 	}
 }
 
+__filter_unused
 static void filter_graph_source(GtkToggleButton *button, FilterDialogPrivate* priv)
 {
 	if (gtk_toggle_button_get_active(button)) {
@@ -482,6 +490,7 @@ static void filter_dialog_init(FilterDialog* filter_dialog)
 
 	GtkWidget *paned = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
 	gtk_paned_set_wide_handle(GTK_PANED(paned), TRUE);
+	gtk_widget_set_vexpand(paned, TRUE);
 	container_add(gtk_dialog_get_content_area(dialog), paned);
 
 	// Filter List Area
@@ -579,6 +588,7 @@ static void filter_dialog_init(FilterDialog* filter_dialog)
 
 	// Filter Graph Area
 	GtkWidget *frame = gtk_frame_new("Filter Response");
+#if HAVE_FILTERGRAPH
 	box_pack_start(vbox, frame, TRUE, TRUE, 0);
 	GtkWidget *button = gtk_check_button_new_with_label("Filter Response Graph");
 	gtk_frame_set_label_widget(GTK_FRAME(frame), button);
@@ -606,6 +616,11 @@ static void filter_dialog_init(FilterDialog* filter_dialog)
 	gtk_widget_set_vexpand(GTK_WIDGET(priv->image), TRUE);
 	gtk_widget_set_hexpand(GTK_WIDGET(priv->image), TRUE);
 	gtk_widget_set_size_request(GTK_WIDGET(priv->image), 640, -1);
+#else
+	box_pack_start(vbox, frame, FALSE, FALSE, 0);
+	container_add(frame, gtk_label_new("Not Supported"));
+	gtk_widget_set_tooltip_text(frame, "Plotting the filter response uses Python, matplotlib, and scipy.\nIt must be enabled at build time.");
+#endif
 }
 
 /* Update IDs from [a, b] to be correct */
@@ -686,6 +701,7 @@ static void filter_settings_update(FilterDialogPrivate *priv, GtkTreeIter* iter,
 	filter_graph_update(priv, id);
 }
 
+__filter_unused
 static gboolean do_graph(gpointer user_data)
 {
 	FilterDialogPrivate *priv = user_data;
@@ -703,11 +719,16 @@ static gboolean do_graph(gpointer user_data)
 
 static void filter_graph_update(FilterDialogPrivate *priv, unsigned id)
 {
+#if HAVE_FILTERGRAPH
 	if (!priv->graph_updated && priv->dograph) {
 		prdbg("schedule filter plot");
 		priv->graph_id = id;
 		g_idle_add(do_graph, priv);
 	}
+#else
+	UNUSED(priv);
+	UNUSED(id);
+#endif
 }
 
 /* Does a change to a filter mean the graph must update?  Sets priv->graph_updated to
