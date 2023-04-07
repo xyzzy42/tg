@@ -1092,8 +1092,13 @@ guint refresh(struct main_window *w)
 		snapshot_destroy(w->active_snapshot);
 		w->active_snapshot = s;
 		w->computer->curr = NULL;
-		if(w->computer->clear_trace && !s->calibrate)
-			memset(s->events,0,s->events_count*sizeof(uint64_t));
+		// Checked for a pending clear and clear this snapshot if there is one.  I.e.,
+		// the clear was triggered in the small window between when the computer
+		// generated the snapshot and this thread received it.
+		if(w->computer->clear_trace && !s->calibrate) {
+			s->events_count = 0;
+			s->amps_count = 0;
+		}
 		if(s->calibrate && s->cal_state == 1 && s->cal_result != w->cal) {
 			w->cal = s->cal_result;
 			gtk_spin_button_set_value(GTK_SPIN_BUTTON(w->cal_spin_button), s->cal_result);
@@ -1110,6 +1115,7 @@ guint refresh(struct main_window *w)
 	if(!g_object_get_data(G_OBJECT(panel), "op-pointer")) {
 		photogenic = !w->active_snapshot->calibrate && w->active_snapshot->pb;
 		gtk_widget_set_sensitive(w->save_item, photogenic);
+		refresh_paperstrip_size(w->active_panel);
 		gtk_widget_queue_draw(w->notebook);
 	}
 	gtk_widget_set_sensitive(w->snapshot_button, photogenic);

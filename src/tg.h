@@ -241,6 +241,13 @@ struct snapshot {
 	unsigned char *events_tictoc;	//< Tic or Toc for each event
 	int events_wp; // used in cal+timegrapher mode
 	uint64_t events_from; // used only in timegrapher mode
+	int event_age; // Age of oldest event, measured in beats!
+
+	/** Allocated arrays of amplitude measurements and timestamps */
+	float *amps;		//< Circ buffer with history of amplitude measurements
+	uint64_t *amps_time;	//< Timestamps for amps
+	int amps_wp;		//< Index of recent amp in amps
+	int amps_count;		//< Number of amplitude samples
 
 	int signal;
 
@@ -312,6 +319,7 @@ struct output_panel {
 	GtkWidget *toc_drawing_area;
 	GtkWidget *period_drawing_area;
 	GtkWidget *paperstrip_box;
+	GtkWidget *paperstrip_scolled_window;
 	GtkWidget *paperstrip_drawing_area;
 	GtkWidget *clear_button;
 	GtkWidget *left_button;
@@ -330,6 +338,7 @@ struct output_panel {
 void initialize_palette();
 struct output_panel *init_output_panel(struct computer *comp, struct snapshot *snst, int border, bool vertical_layout);
 void set_panel_layout(struct output_panel *op, bool vertical);
+void refresh_paperstrip_size(struct output_panel *op);
 void redraw_op(struct output_panel *op);
 void op_set_snapshot(struct output_panel *op, struct snapshot *snst);
 void op_set_border(struct output_panel *op, int i);

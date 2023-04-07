@@ -25,7 +25,7 @@ static const double scale_min = 1, scale_max = 100;
 
 static inline double spb(const struct snapshot *snst);
 
-cairo_pattern_t *black,*white,*red,*green,*blue,*blueish,*yellow;
+static cairo_pattern_t *black,*white,*red,*green,*blue,*blueish,*yellow,*goldenrod;
 
 static void define_color(cairo_pattern_t **gc,double r,double g,double b)
 {
@@ -41,6 +41,7 @@ void initialize_palette()
 	define_color(&blue,0,0,1);
 	define_color(&blueish,0,0,.5);
 	define_color(&yellow,1,1,0);
+	define_color(&goldenrod,.980,.761,.020);
 }
 
 static void draw_graph(double a, double b, cairo_t *c, struct processing_buffers *p, GtkWidget *da)
@@ -328,6 +329,7 @@ static void expose_waveform(
 			struct output_panel *op,
 			GtkWidget *da,
 			cairo_t *c,
+			cairo_pattern_t *color,
 			int (*get_offset)(struct processing_buffers*),
 			double (*get_pulse)(struct processing_buffers*))
 {
@@ -427,7 +429,7 @@ static void expose_waveform(
 
 		draw_graph(a,b,c,p,da);
 
-		cairo_set_source(c,old?yellow:white);
+		cairo_set_source(c, old ? yellow : color);
 		cairo_stroke_preserve(c);
 		cairo_fill(c);
 
@@ -471,14 +473,14 @@ static double get_toc_pulse(struct processing_buffers *p)
 static gboolean tic_draw_event(GtkWidget *widget, cairo_t *c, struct output_panel *op)
 {
 	UNUSED(widget);
-	expose_waveform(op, op->tic_drawing_area, c, get_tic, get_tic_pulse);
+	expose_waveform(op, op->tic_drawing_area, c, white, get_tic, get_tic_pulse);
 	return FALSE;
 }
 
 static gboolean toc_draw_event(GtkWidget *widget, cairo_t *c, struct output_panel *op)
 {
 	UNUSED(widget);
-	expose_waveform(op, op->toc_drawing_area, c, get_toc, get_toc_pulse);
+	expose_waveform(op, op->toc_drawing_area, c, goldenrod, get_toc, get_toc_pulse);
 	return FALSE;
 }
 
@@ -590,9 +592,11 @@ static void box(cairo_t *c, double x, double y)
 static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct output_panel *op)
 {
 	int i;
+	char s[32];
 	const struct snapshot *snst = op->snst;
 	struct display *ssd = snst->d;
 	uint64_t time = snst->timestamp ? snst->timestamp : get_timestamp(snst->is_light);
+	cairo_text_extents_t extents;
 
 	bool stopped = false;
 	if( snst->events_count &&
@@ -636,6 +640,15 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	// Width in samples of one pixel
 	const double pixel_width = (double)chart_width / strip_width;
 
+	/* Scrollbar position */
+	GtkAdjustment* scroll = op->vertical_layout ? 
+		gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(op->paperstrip_drawing_area)) :
+		gtk_scrollable_get_hadjustment(GTK_SCROLLABLE(op->paperstrip_drawing_area));
+	const unsigned int pos = round(gtk_adjustment_get_value(scroll));
+	// If scrollbar is not at zero, subtract from time to start at older data
+	if (pos > 0) 
+		time -= beat_length * pos;
+
 	/* Round time to multiple of beat rate, to avoid "jumping" of a point
 	 * compared to others or grid lines while scrolling.  E.g., points at
 	 * 1.0 and 1.2, both are rounded to row 1.  Advance time by 0.4, points
@@ -644,6 +657,18 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	 * only advancing time by a multiple of a row.  */
 	time += (int)(beat_length + 0.5) - 1;
 	time -= time % (int)(beat_length + 0.5);
+
+	// Flip about y axis in vertical mode
+	cairo_matrix_t graphmatrix, datamatrix, vertmatrix;
+	cairo_get_matrix(c, &graphmatrix);	// matrix for graph text and lines
+	cairo_rotate(c, -M_PI/2);
+	cairo_get_matrix(c, &vertmatrix);	// matrix for vertical text
+	cairo_set_matrix(c, &graphmatrix);
+	if(op->vertical_layout) {
+		const cairo_matrix_t hflip = { -1, 0, 0, 1, width, 0 };
+	        cairo_transform(c, &hflip);
+	}
+	cairo_get_matrix(c, &datamatrix);	// matrix for data
 
 	// Beat error slope lines or calibration slope lines
 	if (snst->pb) { // pb == NULL means no rate, beat error, etc.
@@ -673,6 +698,7 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	const int left_margin = (width - strip_width) / 2;
 	const int right_margin = (width + strip_width) / 2;
 
+	cairo_set_matrix(c, &graphmatrix);
 	cairo_set_line_width(c, 1);
 	cairo_set_source(c, green);
 	cairo_move_to(c, left_margin + .5, .5);
@@ -681,8 +707,24 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	cairo_line_to(c, right_margin + .5, height - .5);
 	cairo_stroke(c);
 
+	// Amplitude graph
+	if (snst->amps_count) {
+		cairo_new_path(c);
+		cairo_set_source(c, yellow);
+		for (int i = snst->amps_count; i > 0; i--) {
+			const int idx = (snst->amps_wp + i) % snst->amps_count;
+			if (snst->amps_time[idx] > time) continue;
+			const double t = (time - snst->amps_time[idx]) / beat_length;
+			const double a = (snst->la * snst->amps[idx] - 135.0) / (360-135) * width;
+			if (t > height) break;
+			cairo_line_to(c, width - a, t);
+		}
+		cairo_stroke(c);
+	}
+
 	// Time grid lines
 	cairo_set_line_width(c, 1);
+	cairo_text_extents(c, "0123456789:", &extents);  // for positioning labels
 	// Space between lines in samples = 10 sec
 	const double line_spacing = 10 * snst->sample_rate;
 	// The topmost line is this many samples from start
@@ -693,15 +735,34 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 		const double row = round(position / beat_length); // …in pixels
 		if (row > height)
 			break;
+		const bool minute = (i - minute_offset) % 6 == 0;
 		cairo_move_to(c, 0, row);
 		cairo_line_to(c, width, row);
-		cairo_set_source(c, (i - minute_offset) % 6 ? green : red);
+		cairo_set_source(c, minute ? red : green);
 		cairo_stroke(c);
+
+		if (minute) {
+			const int timemins = round((time - position) / snst->sample_rate / 60.0);
+			const char * const minus =  timemins < 0 ? "-" : "";
+			const int min = abs(timemins) % 60;
+			const int hour = abs(timemins) / 60;
+			if (hour)
+				snprintf(s, sizeof(s), "%s%d:%02d", minus, hour, min);
+			else
+				snprintf(s, sizeof(s), "%s:%02d", minus, min);
+			cairo_set_source(c, white);
+			cairo_move_to(c, left_margin/2 - extents.y_bearing/2, row - 2);
+			cairo_set_matrix(c, &vertmatrix);
+			cairo_show_text(c, s);
+			cairo_set_matrix(c, &graphmatrix);
+		}
 	}
 
 	// Ticks and tocks
 	cairo_set_line_width(c, 0);
 	cairo_set_source(c, stopped ? yellow : white);
+	cairo_set_matrix(c, &datamatrix);
+
 	/* Compute lag 1 difference between events, find residuals modulo beat
 	 * length (BL) of those differences, convert to range (-BL/2, BL/2], and
 	 * accumulate.
@@ -740,6 +801,7 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 		const int idx = (snst->events_wp + i) % snst->events_count;
 		const uint64_t event = snst->events[idx];
 		if (!event) break;
+		if (event > time) continue;
 
 		// Row 0 is at "time", each row is one beat earlier than that.
 		const double row = round((time - event) / beat_length);
@@ -749,6 +811,7 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 		if (chart_phase < 0) chart_phase += chart_width;
 		const double column = round(chart_phase / pixel_width);
 
+		cairo_set_source(c, snst->events_tictoc[idx] ? white : goldenrod);
 		box(c, column, row);
 		if (column < width - strip_width)
 			box(c, column + strip_width, row);
@@ -761,6 +824,7 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	cairo_stroke(c);
 
 	// Legend line
+	cairo_set_matrix(c, &graphmatrix);
 	cairo_set_source(c, white);
 	cairo_set_line_width(c, 2);
 	cairo_move_to(c, left_margin + 3, height - 20.5);
@@ -781,10 +845,8 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	int font = width / 25;
 	cairo_set_font_size(c, font < 12 ? 12 : font > 24 ? 24 : font);
 
-	char s[32];
 	snprintf(s, sizeof(s), "%.1f ms", s2ms(snst, chart_width));
 
-	cairo_text_extents_t extents;
 	cairo_font_extents_t fextents;
 	cairo_text_extents(c, s, &extents);
 	cairo_font_extents(c, &fextents);
@@ -827,8 +889,11 @@ static void handle_clear_trace(GtkButton *b, struct output_panel *op)
 	if(op->computer) {
 		lock_computer(op->computer);
 		if(!op->snst->calibrate) {
-			memset(op->snst->events,0,op->snst->events_count*sizeof(uint64_t));
+			// Trigger computer to clear its history next update
 			op->computer->clear_trace = 1;
+			// Clear current display immediately
+			op->snst->events_count = 0;
+			op->snst->amps_count = 0;
 		}
 		unlock_computer(op->computer);
 		gtk_widget_queue_draw(op->paperstrip_drawing_area);
@@ -863,13 +928,13 @@ static void shift_trace(struct output_panel *op, double direction)
 static void handle_left(GtkButton *b, struct output_panel *op)
 {
 	UNUSED(b);
-	shift_trace(op,-1);
+	shift_trace(op,1);
 }
 
 static void handle_right(GtkButton *b, struct output_panel *op)
 {
 	UNUSED(b);
-	shift_trace(op,1);
+	shift_trace(op,-1);
 }
 
 static void handle_zoom_original(GtkScaleButton *b, struct output_panel *op)
@@ -925,6 +990,30 @@ static void set_orientation(GtkWidget *widget, bool vertical)
 	gtk_orientable_set_orientation(GTK_ORIENTABLE(widget), vert_to_orient(vertical));
 }
 
+static void paperstrip_size_allocate(GtkWidget* self, GtkAllocation* a, struct output_panel *op)
+{
+	guint width, height;
+	if(op->vertical_layout) {
+		width = a->width;
+		height = MAX(op->snst->event_age, a->height);
+	} else {
+		width = MAX(op->snst->event_age, a->width);
+		height = a->height;
+	}
+
+	guint oldwidth, oldheight;
+	gtk_layout_get_size(GTK_LAYOUT(self), &oldwidth, &oldheight);
+	if(width != oldwidth || height != oldheight)
+		gtk_layout_set_size(GTK_LAYOUT(self), width, height);
+}
+
+void refresh_paperstrip_size(struct output_panel *op)
+{
+	GtkAllocation a;
+	gtk_widget_get_allocation(op->paperstrip_drawing_area, &a);
+	paperstrip_size_allocate(op->paperstrip_drawing_area, &a, op);
+}
+
 /* Creates the paperstrip, with buttons.  Returns top level Widget that contains
  * them.  Vertical controls orientation of paper strip.  */
 static GtkWidget* create_paperstrip(struct output_panel *op, bool vertical)
@@ -935,11 +1024,22 @@ static GtkWidget* create_paperstrip(struct output_panel *op, bool vertical)
 	gtk_box_pack_start(GTK_BOX(vbox), overlay, TRUE, TRUE, 0);
 
 	// Paperstrip
-	op->paperstrip_drawing_area = gtk_drawing_area_new();
+	op->paperstrip_drawing_area = gtk_layout_new(NULL, NULL);
 	gtk_widget_set_size_request(op->paperstrip_drawing_area, 150, 150);
-	gtk_container_add(GTK_CONTAINER(overlay), op->paperstrip_drawing_area);
+	gtk_layout_set_size(GTK_LAYOUT(op->paperstrip_drawing_area), 
+		vertical ? 150 : op->snst->event_age, vertical ? op->snst->event_age : 150);
+	op->paperstrip_scolled_window = gtk_scrolled_window_new(NULL, NULL);
+	gtk_container_add(GTK_CONTAINER(op->paperstrip_scolled_window), op->paperstrip_drawing_area);
+	gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window), 150);
+	gtk_scrolled_window_set_min_content_width(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window), 150);
+	gtk_scrolled_window_set_overlay_scrolling(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window), FALSE);
+	gtk_range_set_inverted(
+		GTK_RANGE(gtk_scrolled_window_get_hscrollbar(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window))),
+		TRUE);
+	gtk_container_add(GTK_CONTAINER(overlay), op->paperstrip_scolled_window);
 	g_signal_connect (op->paperstrip_drawing_area, "draw", G_CALLBACK(paperstrip_draw_event), op);
 	gtk_widget_set_events(op->paperstrip_drawing_area, GDK_EXPOSURE_MASK);
+	g_signal_connect(op->paperstrip_drawing_area, "size-allocate", G_CALLBACK(paperstrip_size_allocate), op);
 
 	GtkWidget *box = gtk_box_new(vert_to_orient(!vertical), 0);
 	gtk_container_set_border_width(GTK_CONTAINER(box), 15);
@@ -963,12 +1063,13 @@ static GtkWidget* create_paperstrip(struct output_panel *op, bool vertical)
 	gtk_widget_set_no_show_all(op->zoom_orig_button, true);
 
 	// Buttons
-	GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+	GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 	gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, TRUE, 0);
+	gtk_style_context_add_class(gtk_widget_get_style_context(hbox), GTK_STYLE_CLASS_LINKED);
 
 	// < button
 	op->left_button = gtk_button_new_from_icon_name(
-		vertical ? "pan-start-symbolic" : "pan-up-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
+		vertical ? "pan-start-symbolic" : "pan-down-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
 	gtk_box_pack_start(GTK_BOX(hbox), op->left_button, TRUE, TRUE, 0);
 	g_signal_connect (op->left_button, "clicked", G_CALLBACK(handle_left), op);
 
@@ -987,7 +1088,7 @@ static GtkWidget* create_paperstrip(struct output_panel *op, bool vertical)
 
 	// > button
 	op->right_button = gtk_button_new_from_icon_name(
-		vertical ? "pan-end-symbolic" : "pan-down-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
+		vertical ? "pan-end-symbolic" : "pan-up-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
 	gtk_box_pack_start(GTK_BOX(hbox), op->right_button, TRUE, TRUE, 0);
 	g_signal_connect (op->right_button, "clicked", G_CALLBACK(handle_right), op);
 
@@ -1041,22 +1142,32 @@ static void place_displays(struct output_panel *op, GtkWidget *paperstrip, GtkWi
 	gtk_paned_set_wide_handle(GTK_PANED(op->displays), TRUE);
 
 	gtk_paned_pack1(GTK_PANED(op->displays), paperstrip, vertical ? FALSE : TRUE, FALSE);
+	gtk_widget_set_margin_end(paperstrip, vertical ? 5 : 0);
+	gtk_widget_set_margin_bottom(paperstrip, vertical ? 0 : 5);
 
 	set_orientation(waveforms, vert_to_orient(vertical));
 	gtk_paned_pack2(GTK_PANED(op->displays), waveforms, TRUE, FALSE);
+	gtk_widget_set_margin_start(waveforms, vertical ? 5 : 0);
+	gtk_widget_set_margin_top(waveforms, vertical ? 0 : 5);
 
 	/* Make paperstrip arrows buttons point correct way */
 	GtkWidget *left_arrow = gtk_button_get_image(GTK_BUTTON(op->left_button));
 	gtk_image_set_from_icon_name(GTK_IMAGE(left_arrow),
-		vertical ? "pan-start-symbolic" : "pan-up-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
+		vertical ? "pan-start-symbolic" : "pan-down-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
 	GtkWidget *right_arrow = gtk_button_get_image(GTK_BUTTON(op->right_button));
 	gtk_image_set_from_icon_name(GTK_IMAGE(right_arrow),
-		vertical ? "pan-end-symbolic" : "pan-down-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
+		vertical ? "pan-end-symbolic" : "pan-up-symbolic", GTK_ICON_SIZE_LARGE_TOOLBAR);
 	/* Orientation of zoom buttons in papestrip */
 	GtkWidget *button_box = gtk_widget_get_parent(op->zoom_button);
 	gtk_widget_set_valign(button_box, vertical ? GTK_ALIGN_END : GTK_ALIGN_START);
 	set_orientation(button_box, !vertical);
 	set_orientation(op->zoom_button, vertical);
+	/* Location of scroll bars in paperstrip */
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window),
+		vertical ? GTK_POLICY_NEVER : GTK_POLICY_ALWAYS, 
+		vertical ? GTK_POLICY_ALWAYS : GTK_POLICY_NEVER);
+	gtk_scrolled_window_set_propagate_natural_width(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window), vertical);
+	gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(op->paperstrip_scolled_window), !vertical);
 
 	gtk_box_pack_end(GTK_BOX(op->panel), op->displays, TRUE, TRUE, 0);
 	gtk_widget_show(op->displays);
