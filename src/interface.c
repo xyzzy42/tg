@@ -102,6 +102,19 @@ static void handle_la_change(GtkSpinButton *b, struct main_window *w)
 	gtk_widget_queue_draw(w->notebook);
 }
 
+static gboolean handle_la_output(GtkSpinButton *b, struct main_window *w)
+{
+	UNUSED(w);
+	const double la = gtk_spin_button_get_value(b);
+	const int digit = (int)round(la * 10.0) % 10;
+
+	g_autofree gchar *text = g_strdup_printf("%0.*f", digit == 0 ? 0 : 1, la);
+	if(strcmp(text, gtk_entry_get_text(GTK_ENTRY(b))))
+		gtk_entry_set_text(GTK_ENTRY(b), text);
+
+	return TRUE;
+}
+
 static void handle_cal_change(GtkSpinButton *b, struct main_window *w)
 {
 	if(!w->controls_active) return;
@@ -947,8 +960,10 @@ static void init_main_window(struct main_window *w)
 	// Lift angle spin button
 	w->la_spin_button = gtk_spin_button_new_with_range(MIN_LA, MAX_LA, 1);
 	gtk_box_pack_start(GTK_BOX(hbox), w->la_spin_button, FALSE, FALSE, 0);
+	gtk_spin_button_set_digits(GTK_SPIN_BUTTON(w->la_spin_button), 1);
 	gtk_spin_button_set_value(GTK_SPIN_BUTTON(w->la_spin_button), w->la);
 	g_signal_connect(w->la_spin_button, "value_changed", G_CALLBACK(handle_la_change), w);
+	g_signal_connect(w->la_spin_button, "output", G_CALLBACK(handle_la_output), w);
 
 	// Calibration label
 	label = gtk_label_new("cal");
