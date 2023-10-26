@@ -8,9 +8,14 @@ AC_PROG_CC
 AC_LANG(C)
 AC_CHECK_LIB([pthread], [pthread_mutex_init], [], [AC_MSG_ERROR([pthread not found])])
 AC_CHECK_LIB([m], [sqrt], [], [AC_MSG_ERROR([libm not found])])
+AC_CHECK_FUNCS(aligned_alloc, [], [AC_CHECK_FUNCS(_aligned_malloc)])
 PKG_CHECK_MODULES([GTK], [gtk+-3.0 glib-2.0])
 PKG_CHECK_MODULES([PORTAUDIO], [portaudio-2.0])
 PKG_CHECK_MODULES([FFTW], [fftw3f])
+
+AS_IF([test "x$ac_cv_func_aligned_alloc" != xyes -a "x$ac_cv_func__aligned_malloc" != xyes],
+  AC_MSG_ERROR([Neither C11 aligned_alloc() nor MinGW _aligned_malloc() detected])
+)
 
 AC_DEFUN([AX_PYTHON_PACKAGE],[
   AC_MSG_CHECKING([for Python package $1])

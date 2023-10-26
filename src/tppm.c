@@ -264,7 +264,12 @@ struct tppm* tppm_init(unsigned chunk_size, unsigned max_age)
 	if (!tppm)
 		return NULL;
 	const size_t bufsize = chunk_size * sizeof(*tppm->buffer);
+#ifdef HAVE__ALIGNED_MALLOC
+	tppm->buffer = _aligned_malloc(32, (bufsize + 31) & ~0x1f);
+#else
 	tppm->buffer = aligned_alloc(32, (bufsize + 31) & ~0x1f);
+#endif
+
 	if (!tppm->buffer) {
 		free(tppm);
 		return NULL;
@@ -285,7 +290,11 @@ struct tppm* tppm_init(unsigned chunk_size, unsigned max_age)
 
 void tppm_free(struct tppm* tppm)
 {
+#ifdef HAVE__ALIGNED_MALLOC
+	_aligned_free(tppm->buffer);
+#else
 	free(tppm->buffer);
+#endif
 	free(tppm->deque);
 	free(tppm);
 }
