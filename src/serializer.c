@@ -37,10 +37,13 @@ static char hex_digit(uint64_t n)
 
 static int write_hex_double(FILE *f, double d)
 {
-	uint64_t bd = *(uint64_t *)&d;
-	uint64_t mantissa = bd << 12;
-	uint64_t exponent = (bd >> 52) & 0x7ff;
-	uint64_t sign = bd >> 63;
+	union {
+		double d;
+		uint64_t bd;
+	} val = { .d = d };
+	uint64_t mantissa = val.bd << 12;
+	uint64_t exponent = (val.bd >> 52) & 0x7ff;
+	uint64_t sign = val.bd >> 63;
 
 	// nan or inf = error
 	if(exponent == 0x7ff) return 1;
