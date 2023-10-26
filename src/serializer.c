@@ -18,6 +18,7 @@
 
 #include "tg.h"
 #include <inttypes.h>
+#include <limits.h>
 
 #define LABEL_SIZE 64
 
