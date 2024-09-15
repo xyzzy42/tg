@@ -76,6 +76,13 @@ AS_IF([test "x$with_python" != xno], [
   AX_PYTHON_PACKAGE([scipy])
   AX_PYTHON_PACKAGE([matplotlib])
 
+  AC_MSG_NOTICE([----------------  Extra flags for python --------------------])
+  AC_MSG_NOTICE([libs $PYTHON_LIBS])
+  AC_MSG_NOTICE([extra libs $PYTHON_EXTRA_LIBS])
+  AC_MSG_NOTICE([extra ldflags $PYTHON_EXTRA_LDFLAGS])
+  AC_MSG_NOTICE([cppflags $PYTHON_CPPFLAGS])
+  AC_MSG_NOTICE([-------------------------------------------------------------])
+
   AS_IF([test "x$have_libtfr" = xyes -a "x$have_matplotlib" = xyes],
     [AC_DEFINE([HAVE_SPECTROGRAM]) enable_spectrogram=yes;], [enable_spectrogram=no;])
   AS_IF([test "x$have_scipy" = xyes -a "x$have_matplotlib" = xyes],

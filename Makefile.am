@@ -36,7 +36,7 @@ LIBS = $(GTK_LIBS) \
        $(GTHREAD_LIBS) \
        $(PORTAUDIO_LIBS) \
        $(FFTW_LIBS) \
-       $(PYTHON_LIBS) \
+       $(PYTHON_LIBS) $(PYTHON_EXTRA_LIBS) \
        -lpthread \
        -lm
 
@@ -48,15 +48,15 @@ AM_CFLAGS = $(WARNINGFLAGS) \
 	    $(GTHREAD_CFLAGS) \
 	    $(PORTAUDIO_CFLAGS) \
 	    $(FFTW_CFLAGS) \
-	    $(PYTHON_CPPFLAGS)
+	    $(PYTHON_CPPFLAGS) $(PYTHON_EXTRA_CFLAGS)
 tg_timer_dbg_CFLAGS = $(AM_CFLAGS) -ggdb
 tg_timer_prf_CFLAGS = $(AM_CFLAGS) -pg
 tg_timer_vlg_CFLAGS = $(AM_CFLAGS) -g
 
-tg_timer_LDFLAGS = $(AM_LDFLAGS)
-tg_timer_dbg_LDFLAGS = $(AM_LDFLAGS)
-tg_timer_prf_LDFLAGS = $(AM_LDFLAGS)
-tg_timer_vlg_LDFLAGS = $(AM_LDFLAGS)
+tg_timer_LDFLAGS = $(AM_LDFLAGS) $(PYTHON_EXTRA_LDFLAGS)
+tg_timer_dbg_LDFLAGS = $(AM_LDFLAGS) $(PYTHON_EXTRA_LDFLAGS)
+tg_timer_prf_LDFLAGS = $(AM_LDFLAGS) $(PYTHON_EXTRA_LDFLAGS)
+tg_timer_vlg_LDFLAGS = $(AM_LDFLAGS) $(PYTHON_EXTRA_LDFLAGS)
 
 if BE_WINDOWS
 if HAVE_WINDRES
