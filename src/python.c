@@ -452,6 +452,10 @@ bool python_init(const struct main_window* w)
 	module_w_ptr = w;  // Argument for create_tgmodule()
 	PyImport_AppendInittab(EXTMODULE, create_tgmodule);
 	Py_Initialize();
+
+	PyRun_SimpleString("import importlib.machinery");
+	PyRun_SimpleString("print(importlib.machinery.all_suffixes())");
+
 	import_array();  // Initialize numpy
 
 #if HAVE_FILTERGRAPH
