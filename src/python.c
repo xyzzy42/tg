@@ -475,6 +475,17 @@ error:
 	return false;
 }
 
+void python_set_name(const char *name)
+{
+	static wchar_t *wide_name = NULL;
+	
+	if (wide_name)
+		PyMem_RawFree(wide_name);
+	wide_name = Py_DecodeLocale(name, NULL);
+	if (wide_name)
+		Py_SetProgramName(wide_name);
+}
+
 void python_finish(void)
 {
 	UNLOADMODULE(filter_graph);

@@ -449,9 +449,11 @@ int read_file(FILE *f, struct snapshot ***s, char ***names, uint64_t *cnt);
 #ifdef HAVE_PYTHON
 bool python_init(const struct main_window* w);
 void python_finish(void);
+void python_set_name(const char* name);
 #else
 static inline bool python_init(const struct main_window* w) { UNUSED(w); return true; }
 static inline void python_finish(void) { }
+static inline void python_set_name(const char* name) { }
 #endif
 void create_filter_plot(GtkImage* image, const struct filter* filter, int f0, int Fs, double Q);
 void create_filter_chain_plot(GtkImage *image);

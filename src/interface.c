@@ -1236,6 +1236,7 @@ static void handle_open(GApplication* app, GFile **files, int cnt, char *hint, v
 int main(int argc, char **argv)
 {
 	gtk_disable_setlocale();
+	python_set_name(argv[0]);
 
 #ifdef DEBUG
 	if(argc > 1 && !strcmp("test",argv[1])) {
