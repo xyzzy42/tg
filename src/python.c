@@ -455,6 +455,8 @@ bool python_init(const struct main_window* w)
 
 	PyRun_SimpleString("import importlib.machinery");
 	PyRun_SimpleString("print(importlib.machinery.all_suffixes())");
+	PyRun_SimpleString("import sys");
+	PyRun_SimpleString("print(sys.path)");
 
 	import_array();  // Initialize numpy
 
