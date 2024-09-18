@@ -20,12 +20,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdbool.h>
 #include <complex.h>
 #include <fftw3.h>
-#include <stdarg.h>
 #include <gtk/gtk.h>
 #include <pthread.h>
 
@@ -398,6 +397,7 @@ struct main_window {
 
 	bool vertical_layout;
 
+	const char* program_name;
 	GKeyFile *config_file;
 	gchar *config_file_name;
 	struct conf_data *conf_data;

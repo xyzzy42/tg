@@ -1164,9 +1164,8 @@ static void computer_callback(void *w)
 	gdk_threads_add_idle((GSourceFunc)refresh,w);
 }
 
-static void start_interface(GApplication* app, void *p)
+static void start_interface(GApplication* app, const char* argv0)
 {
-	UNUSED(p);
 	double real_sr;
 
 	initialize_palette();
@@ -1174,6 +1173,7 @@ static void start_interface(GApplication* app, void *p)
 	struct main_window *w = calloc(1, sizeof(struct main_window));
 
 	w->app = GTK_APPLICATION(app);
+	w->program_name = argv0;
 
 	w->controls_active = 1;
 	w->cal = MIN_CAL - 1;
@@ -1267,7 +1267,7 @@ int main(int argc, char **argv)
 #endif
 
 	GtkApplication *app = gtk_application_new ("li.ciovil.tg", G_APPLICATION_HANDLES_OPEN);
-	g_signal_connect (app, "startup", G_CALLBACK (start_interface), NULL);
+	g_signal_connect (app, "startup", G_CALLBACK (start_interface), argv[0]);
 	g_signal_connect (app, "activate", G_CALLBACK (handle_activate), NULL);
 	g_signal_connect (app, "open", G_CALLBACK (handle_open), NULL);
 	g_signal_connect (app, "shutdown", G_CALLBACK (on_shutdown), NULL);

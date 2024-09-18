@@ -449,9 +449,25 @@ bool python_init(const struct main_window* w)
 	if (python_initialized)
 		return true;
 
+	PyConfig config;
+	PyConfig_InitPythonConfig(&config);
+	PyStatus status = PyConfig_SetBytesString(&config, &config.program_name, w->program_name);
+	if (PyStatus_Exception(status)) {
+		error("Unable to set program name '%s'", w->program_name);
+		PyConfig_Clear(&config);
+		goto error;
+	}
+
 	module_w_ptr = w;  // Argument for create_tgmodule()
 	PyImport_AppendInittab(EXTMODULE, create_tgmodule);
-	Py_Initialize();
+
+	status = Py_InitializeFromConfig(&config);
+	PyConfig_Clear(&config);
+	if (PyStatus_Exception(status)) {
+		error("Failed initializing Python");
+		goto error;
+	}
+
 	import_array();  // Initialize numpy
 
 #if HAVE_FILTERGRAPH
