@@ -406,7 +406,7 @@ struct main_window {
 	guint save_timeout;
 };
 
-extern int preset_bph[];
+extern const int preset_bph[];
 
 #ifdef DEBUG
 extern int testing;

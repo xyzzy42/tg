@@ -27,7 +27,7 @@
 int testing = 0;
 #endif
 
-int preset_bph[] = PRESET_BPH;
+const int preset_bph[] = PRESET_BPH;
 
 void print_debug(char *format,...)
 {
@@ -74,21 +74,42 @@ static void refresh_results(struct main_window *w)
 	w->active_snapshot->cal = w->cal;
 	compute_results(w->active_snapshot);
 }
+static void set_new_bph(int bph, struct main_window *w)
+{
+	if(bph != w->bph) {
+		w->bph = bph;
+		refresh_results(w);
+		gtk_widget_queue_draw(w->notebook);
+	}
+}
 
 static void handle_bph_change(GtkComboBox *b, struct main_window *w)
 {
 	if(!w->controls_active) return;
-	char *s = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(b));
-	if(s) {
-		int bph;
-		char *t;
-		int n = (int)strtol(s,&t,10);
-		if(*t || n < MIN_BPH || n > MAX_BPH) bph = 0;
-		else bph = n;
-		g_free(s);
-		w->bph = bph;
-		refresh_results(w);
-		gtk_widget_queue_draw(w->notebook);
+	const int active = gtk_combo_box_get_active(b);
+	if(active >= 0) {
+		// 0 means guess
+		const int bph = active == 0 ? 0 : preset_bph[active-1];
+		set_new_bph(bph, w);
+	}
+	// else, they are typing to the box, don't set anything yet
+}
+
+static void handle_bph_activate(GtkEntry* entry, struct main_window *w)
+{
+	if(!w->controls_active) return;
+	const char *s = gtk_entry_get_text(entry);
+	char *t;
+	int n = strtol(s, &t, 10);
+	if((*t && *t != ' ') || n < MIN_BPH || n > MAX_BPH) {
+		GtkWidget *dialog;
+		dialog = gtk_message_dialog_new(GTK_WINDOW(w->window), 0, GTK_MESSAGE_ERROR, GTK_BUTTONS_CLOSE,
+					        "Invalid BPH value!\nValid values range from %d to %d", MIN_BPH, MAX_BPH);
+		gtk_dialog_run(GTK_DIALOG(dialog));
+		gtk_widget_destroy(dialog);
+		gtk_combo_box_set_active(GTK_COMBO_BOX(w->bph_combo_box), 0);
+	} else {
+		set_new_bph(n, w);
 	}
 }
 
@@ -951,7 +972,8 @@ static void init_main_window(struct main_window *w)
 		GtkEntry *e = GTK_ENTRY(gtk_bin_get_child(GTK_BIN(w->bph_combo_box)));
 		gtk_entry_set_text(e,s);
 	}
-	g_signal_connect (w->bph_combo_box, "changed", G_CALLBACK(handle_bph_change), w);
+	g_signal_connect(w->bph_combo_box, "changed", G_CALLBACK(handle_bph_change), w);
+	g_signal_connect(gtk_bin_get_child(GTK_BIN(w->bph_combo_box)), "activate", G_CALLBACK(handle_bph_activate), w);
 
 	// Lift angle label
 	label = gtk_label_new("lift angle");
