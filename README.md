@@ -22,7 +22,7 @@ systems. See the sub-sections below for the details.
 Binaries can be found at https://tg.ciovil.li
 
 Unfortunately, these packages have not been updated since 2017.  Help from
-someone who can build the Windows installer version would be appreciated. 
+someone who can build the Windows installer version would be appreciated.
 You'll need to [build from source](#compiling-on-windows) to get any features
 from the last five plus years.
 
@@ -41,7 +41,7 @@ and follow any instructions it gives you.
 To install tg, run:
 
 	brew install --HEAD xyzzy42/horology/tg-timer
-	
+
 You can now launch tg by typing:
 
 	tg-timer &
@@ -98,16 +98,40 @@ make tg-timer-dbg
 
 ### Compiling on Windows
 
-It is suggested to use the msys2 platform. First install msys2 according
-to the instructions at [http://www.msys2.org](http://www.msys2.org). Then
-issue the following commands to install dependencies:
+It is suggested to use the MSYS2 platform. First install MSYS2 according
+to the instructions at [http://www.msys2.org](http://www.msys2.org).  The
+[UCRT64 environment](https://www.msys2.org/docs/environments/) appears to work
+best.
+
+From the MSYS2 UCRT64 terminal issue the following commands to install dependencies:
 
 ```sh
-pacman -S mingw-w64-x86_64-gcc make pkg-config mingw-w64-x86_64-gtk3 mingw-w64-x86_64-portaudio mingw-w64-x86_64-fftw git autoconf automake libtool
+pacman -S mingw-w64-ucrt-x86_64-gcc pkg-config mingw-w64-ucrt-x86_64-gtk3 mingw-w64-ucrt-x86_64-portaudio mingw-w64-ucrt-x86_64-fftw make git autoconf automake libtool
+pacman -S mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-python-scipy mingw-w64-ucrt-x86_64-python-matplotlib mingw-w64-ucrt-x86_64-lapack mingw-w64-ucrt-x86_64-cython mingw-w64-ucrt-x86_64-python-pip
 ```
 
-Then follow the [normal build](#normal-build) instructions to clone the
+Add the folder "C:\msys64\ucrt64\bin" to the system path variable
+
+Install the libtfr package with:
+
+```sh
+pip install libtfr
+```
+
+If that doesn't work, try building it manually:
+
+```sh
+git clone https://github.com/melizalab/libtfr.git
+cd libtfr
+python setup.py install
+```
+
+Then follow the [normal build](#normal-build) instructions to clone the TG
 repository and build it.
+
+If the "Signal" or "Filter Chain" dialogs do not work, this appears to be some
+sort of [library issue with Python on Windows](https://github.com/xyzzy42/tg/issues/8#issuecomment-2351649260).
+Try copying the `tg-timer.exe` file to `C:\msys64\ucrt64\bin` and run it from there.
 
 ### Compiling on Debian
 
