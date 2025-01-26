@@ -19,6 +19,7 @@
 #include "tg.h"
 #include <portaudio.h>
 #include <errno.h>
+#include <time.h>
 
 /* Huge buffer of audio */
 static float *pa_buffers;
@@ -461,7 +462,7 @@ int set_audio_device(int device, int *nominal_sr, double *real_sr, struct filter
 			break;
 		if (err != paDeviceUnavailable)
 			goto error;
-		usleep(500000);
+		nanosleep(&(const struct timespec){ .tv_nsec = 500000000, .tv_sec = 0}, NULL);
 	}
 	if(!n)
 		goto error;
