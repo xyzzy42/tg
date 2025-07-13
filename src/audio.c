@@ -684,7 +684,7 @@ int terminate_portaudio()
 	return 0;
 }
 
-uint64_t get_timestamp()
+uint64_t get_timestamp(void)
 {
 	pthread_mutex_lock(&audio_mutex);
 	uint64_t ts = actx.info.light ? timestamp / 2 : timestamp;

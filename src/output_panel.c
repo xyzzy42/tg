@@ -595,7 +595,7 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 	char s[32];
 	const struct snapshot *snst = op->snst;
 	struct display *ssd = snst->d;
-	uint64_t time = snst->timestamp ? snst->timestamp : get_timestamp(snst->is_light);
+	uint64_t time = snst->timestamp ? snst->timestamp : get_timestamp();
 	cairo_text_extents_t extents;
 
 	bool stopped = false;

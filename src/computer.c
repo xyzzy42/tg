@@ -178,7 +178,7 @@ static void compute_events_cal(struct computer *c)
 		s->events[s->events_wp] = d->events[i];
 		debug("event at %llu\n",s->events[s->events_wp]);
 	}
-	s->events_from = get_timestamp(s->is_light);
+	s->events_from = get_timestamp();
 }
 
 static void compute_events(struct computer *c)
@@ -215,7 +215,7 @@ static void compute_events(struct computer *c)
 
 		s->events_from = p->timestamp - ceil(p->period);
 	} else {
-		s->events_from = get_timestamp(s->is_light);
+		s->events_from = get_timestamp();
 	}
 }
 
@@ -235,7 +235,7 @@ void compute_results(struct snapshot *s)
 	/* Find time, in beats, from last event to "now" */
 	s->event_age = 0;
 	if(s->events_count) {
-		const uint64_t time = s->timestamp ? s->timestamp : get_timestamp(s->is_light);
+		const uint64_t time = s->timestamp ? s->timestamp : get_timestamp();
 		const uint64_t event = s->events[(s->events_wp + 1) % s->events_count];
 		if(event) {
 			const double beat_length = s->calibrate ? s->nominal_sr : (s->sample_rate * 3600) / s->guessed_bph;

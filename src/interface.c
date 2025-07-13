@@ -475,7 +475,7 @@ static void handle_snapshot(GtkButton *b, struct main_window *w)
 	UNUSED(b);
 	if(w->active_snapshot->calibrate) return;
 	struct snapshot *s = snapshot_clone(w->active_snapshot);
-	s->timestamp = get_timestamp(s->is_light);
+	s->timestamp = get_timestamp();
 	add_new_tab(s, NULL, w);
 }
 
@@ -605,7 +605,7 @@ static void save_current(GtkMenuItem *m, struct main_window *w)
 	snapshot = snapshot_clone(snapshot);
 
 	if(!snapshot->timestamp)
-		snapshot->timestamp = get_timestamp(snapshot->is_light);
+		snapshot->timestamp = get_timestamp();
 
 	FILE *f = choose_file_for_save(w, "Save current display", name);
 

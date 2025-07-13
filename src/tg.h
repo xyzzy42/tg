@@ -190,7 +190,7 @@ int analyze_processing_data_cal(struct processing_data *pd, struct calibration_d
 
 int start_portaudio(int device, int *nominal_sample_rate, double *real_sample_rate, struct filter_chain *chain, bool light);
 int terminate_portaudio();
-uint64_t get_timestamp();
+uint64_t get_timestamp(void);
 void fill_buffers(struct processing_buffers *ps);
 void set_audio_light(bool light);
 struct audio_device {
