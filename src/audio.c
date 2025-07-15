@@ -637,7 +637,6 @@ int start_portaudio(int device, int *nominal_sample_rate, double *real_sample_ra
 	if(testing) {
 		*nominal_sample_rate = PA_SAMPLE_RATE;
 		*real_sample_rate = PA_SAMPLE_RATE;
-		goto end;
 	}
 #endif
 
@@ -661,9 +660,6 @@ int start_portaudio(int device, int *nominal_sample_rate, double *real_sample_ra
 	if(err!=paNoError && err!=1)
 		goto error;
 
-#ifdef DEBUG
-end:
-#endif
 	debug("sample rate: nominal = %d real = %f\n",*nominal_sample_rate,*real_sample_rate);
 
 	return 0;
