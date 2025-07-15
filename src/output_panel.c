@@ -772,7 +772,7 @@ static gboolean paperstrip_draw_event(GtkWidget *widget, cairo_t *c, struct outp
 
 	double display_offset = chart_width/2; // Value used if no anchor found
 	double offsets[snst->events_count];
-	if (snst->events_count) {
+	if (snst->events_count > 0) {
 		double accumulated_offset = 0.0;
 		uint64_t prev_event = snst->events[snst->events_wp]; // Start with first event
 		for (i = snst->events_count; i > 0; i--) { // Scan order is newest to oldest
